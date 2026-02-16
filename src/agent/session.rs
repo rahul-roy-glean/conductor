@@ -131,6 +131,51 @@ impl AgentManager {
         let repo = std::path::Path::new(repo_path);
         let worktree_path = worktree::create_worktree(repo, &agent_run_id, &branch).await?;
 
+        // Drop guard to ensure cleanup if we fail after creating the worktree
+        struct CleanupGuard {
+            repo_path: PathBuf,
+            worktree_path: PathBuf,
+            agent_run_id: Option<String>,
+            db: Database,
+            should_cleanup: bool,
+        }
+
+        impl Drop for CleanupGuard {
+            fn drop(&mut self) {
+                if self.should_cleanup {
+                    let repo = self.repo_path.clone();
+                    let wt = self.worktree_path.clone();
+                    let run_id = self.agent_run_id.clone();
+                    let db = self.db.clone();
+
+                    tokio::spawn(async move {
+                        tracing::warn!(
+                            "Cleaning up failed spawn: removing worktree at {}",
+                            wt.display()
+                        );
+                        if let Err(e) = worktree::remove_worktree(&repo, &wt).await {
+                            tracing::error!("Failed to cleanup worktree during failed spawn: {}", e);
+                        }
+
+                        // If DB record was created, mark it as failed
+                        if let Some(id) = run_id {
+                            if let Err(e) = db.update_agent_run_status(&id, "failed") {
+                                tracing::error!("Failed to mark agent run as failed during cleanup: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        let mut cleanup_guard = CleanupGuard {
+            repo_path: repo.to_path_buf(),
+            worktree_path: worktree_path.clone(),
+            agent_run_id: None,
+            db: self.db.clone(),
+            should_cleanup: true,
+        };
+
         // Create agent run in DB
         let agent_run = self.db.create_agent_run(
             task_id,
@@ -140,6 +185,9 @@ impl AgentManager {
             model,
             max_budget_usd,
         )?;
+
+        // Store agent_run_id so cleanup can mark it as failed if needed
+        cleanup_guard.agent_run_id = Some(agent_run.id.clone());
 
         // Mark task as running
         self.db.update_task(
@@ -216,6 +264,9 @@ impl AgentManager {
         // Update status to running
         self.db
             .update_agent_run_status(&agent_run.id, "running")?;
+
+        // Spawn succeeded - disable cleanup guard
+        cleanup_guard.should_cleanup = false;
 
         // Spawn background task to read stdout events
         let db = self.db.clone();
