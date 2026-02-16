@@ -42,10 +42,12 @@ pub async fn handle_stop_hook(
             .find(|a| a.claude_session_id.as_deref() == Some(session_id))
         {
             // Mark agent as done
-            let _ = state.db.update_agent_run_status(&agent.id, "done");
+            if let Err(e) = state.db.update_agent_run_status(&agent.id, "done") {
+                tracing::error!("Failed to update agent run status to done for {}: {}", agent.id, e);
+            }
 
             // Mark task as done
-            let _ = state.db.update_task(
+            if let Err(e) = state.db.update_task(
                 &agent.task_id,
                 &crate::db::queries::UpdateTask {
                     status: Some("done".to_string()),
@@ -54,17 +56,23 @@ pub async fn handle_stop_hook(
                     priority: None,
                     depends_on: None,
                 },
-            );
+            ) {
+                tracing::error!("Failed to update task {} to done via stop hook: {}", agent.task_id, e);
+            }
 
-            let _ = state.db.insert_goal_history(
+            if let Err(e) = state.db.insert_goal_history(
                 &agent.goal_space_id,
                 "task_completed",
                 &format!("Task {} completed by agent {}", agent.task_id, agent.id),
                 None,
-            );
+            ) {
+                tracing::error!("Failed to insert goal history for goal {}: {}", agent.goal_space_id, e);
+            }
 
             // Check if the goal is now complete
-            let _ = space::check_goal_completion(&state.db, &agent.goal_space_id);
+            if let Err(e) = space::check_goal_completion(&state.db, &agent.goal_space_id) {
+                tracing::error!("Failed to check goal completion for goal {}: {}", agent.goal_space_id, e);
+            }
 
             // Auto-dispatch newly unblocked tasks
             state.agent_manager.request_dispatch(&agent.goal_space_id);

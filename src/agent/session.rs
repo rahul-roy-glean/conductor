@@ -281,7 +281,9 @@ impl AgentManager {
                                     let mut sessions = sessions.write().await;
                                     if let Some(session) = sessions.get_mut(&run_id) {
                                         session.status = AgentStatus::Running;
-                                        let _ = db.update_agent_run_status(&run_id, "running");
+                                        if let Err(e) = db.update_agent_run_status(&run_id, "running") {
+                                            tracing::error!("Failed to update agent run status to running for {}: {}", run_id, e);
+                                        }
                                     }
                                 }
 
@@ -310,12 +312,14 @@ impl AgentManager {
                                                 session.cost_usd += cost_usd;
                                                 session.input_tokens += input_tokens;
                                                 session.output_tokens += output_tokens;
-                                                let _ = db.update_agent_run_cost(
+                                                if let Err(e) = db.update_agent_run_cost(
                                                     &run_id,
                                                     session.cost_usd,
                                                     session.input_tokens,
                                                     session.output_tokens,
-                                                );
+                                                ) {
+                                                    tracing::error!("Failed to update agent run cost for {}: {}", run_id, e);
+                                                }
 
                                                 // Enforce max_budget_usd server-side
                                                 if let Some(budget) = max_budget {
@@ -328,15 +332,19 @@ impl AgentManager {
                                                         );
                                                         budget_exceeded = true;
                                                         session.status = AgentStatus::Killed;
-                                                        let _ = db.update_agent_run_status(&run_id, "killed");
-                                                        let _ = db.insert_agent_event(
+                                                        if let Err(e) = db.update_agent_run_status(&run_id, "killed") {
+                                                            tracing::error!("Failed to update agent run status to killed for {}: {}", run_id, e);
+                                                        }
+                                                        if let Err(e) = db.insert_agent_event(
                                                             &run_id,
                                                             "error",
                                                             None,
                                                             &format!("Budget exceeded: ${:.4} > ${:.4}", session.cost_usd, budget),
                                                             None,
                                                             None,
-                                                        );
+                                                        ) {
+                                                            tracing::error!("Failed to insert budget exceeded event for {}: {}", run_id, e);
+                                                        }
                                                         session.process.kill().await.ok();
                                                         break;
                                                     }
@@ -352,18 +360,23 @@ impl AgentManager {
                                             if let Some(session) = sessions.get_mut(&run_id) {
                                                 session.claude_session_id = Some(session_id.clone());
                                                 session.cost_usd = *cost_usd;
-                                                let _ =
-                                                    db.update_agent_run_session_id(&run_id, session_id);
-                                                let _ = db.update_agent_run_cost(
+                                                if let Err(e) = db.update_agent_run_session_id(&run_id, session_id) {
+                                                    tracing::error!("Failed to update agent run session ID for {}: {}", run_id, e);
+                                                }
+                                                if let Err(e) = db.update_agent_run_cost(
                                                     &run_id,
                                                     session.cost_usd,
                                                     session.input_tokens,
                                                     session.output_tokens,
-                                                );
+                                                ) {
+                                                    tracing::error!("Failed to update agent run cost for {}: {}", run_id, e);
+                                                }
                                             }
                                         }
                                         _ => {
-                                            let _ = db.update_agent_run_activity(&run_id);
+                                            if let Err(e) = db.update_agent_run_activity(&run_id) {
+                                                tracing::error!("Failed to update agent run activity for {}: {}", run_id, e);
+                                            }
                                         }
                                     }
                                 }
@@ -389,15 +402,19 @@ impl AgentManager {
                             let mut sessions = sessions.write().await;
                             if let Some(session) = sessions.get_mut(&run_id) {
                                 session.status = AgentStatus::Failed;
-                                let _ = db.update_agent_run_status(&run_id, "failed");
-                                let _ = db.insert_agent_event(
+                                if let Err(e) = db.update_agent_run_status(&run_id, "failed") {
+                                    tracing::error!("Failed to update agent run status to failed for {}: {}", run_id, e);
+                                }
+                                if let Err(e) = db.insert_agent_event(
                                     &run_id,
                                     "error",
                                     None,
                                     &format!("Hard timeout after {:?}", total_elapsed),
                                     None,
                                     None,
-                                );
+                                ) {
+                                    tracing::error!("Failed to insert hard timeout event for {}: {}", run_id, e);
+                                }
                                 session.process.kill().await.ok();
                             }
                             break;
@@ -411,15 +428,19 @@ impl AgentManager {
                                 let mut sessions = sessions.write().await;
                                 if let Some(session) = sessions.get_mut(&run_id) {
                                     session.status = AgentStatus::Stalled;
-                                    let _ = db.update_agent_run_status(&run_id, "stalled");
-                                    let _ = db.insert_agent_event(
+                                    if let Err(e) = db.update_agent_run_status(&run_id, "stalled") {
+                                        tracing::error!("Failed to update agent run status to stalled for {}: {}", run_id, e);
+                                    }
+                                    if let Err(e) = db.insert_agent_event(
                                         &run_id,
                                         "warning",
                                         None,
                                         &format!("Agent stalled - no events for {:?}", elapsed_since_last_event),
                                         None,
                                         None,
-                                    );
+                                    ) {
+                                        tracing::error!("Failed to insert stalled event for {}: {}", run_id, e);
+                                    }
                                 }
                             }
                         }
@@ -437,14 +458,16 @@ impl AgentManager {
                 } else {
                     stderr_output.clone()
                 };
-                let _ = db.insert_agent_event(
+                if let Err(e) = db.insert_agent_event(
                     &run_id,
                     "error",
                     None,
                     &summary,
                     None,
                     None,
-                );
+                ) {
+                    tracing::error!("Failed to insert stderr event for {}: {}", run_id, e);
+                }
             }
 
             // Process exited - determine final status
@@ -453,7 +476,7 @@ impl AgentManager {
                 if let Some(session) = sessions.get_mut(&run_id) {
                     // Determine final status based on exit conditions
                     let final_status = if timed_out {
-                        let _ = db.update_task(
+                        if let Err(e) = db.update_task(
                             &task_id_owned,
                             &crate::db::queries::UpdateTask {
                                 status: Some("failed".to_string()),
@@ -462,10 +485,12 @@ impl AgentManager {
                                 priority: None,
                                 depends_on: None,
                             },
-                        );
+                        ) {
+                            tracing::error!("Failed to update task {} to failed (timeout) for agent {}: {}", task_id_owned, run_id, e);
+                        }
                         "failed"
                     } else if budget_exceeded {
-                        let _ = db.update_task(
+                        if let Err(e) = db.update_task(
                             &task_id_owned,
                             &crate::db::queries::UpdateTask {
                                 status: Some("failed".to_string()),
@@ -474,7 +499,9 @@ impl AgentManager {
                                 priority: None,
                                 depends_on: None,
                             },
-                        );
+                        ) {
+                            tracing::error!("Failed to update task {} to failed (budget exceeded) for agent {}: {}", task_id_owned, run_id, e);
+                        }
                         "killed"
                     } else {
                         // Normal exit - check process status
@@ -484,7 +511,7 @@ impl AgentManager {
                                 // Only mark as done if the agent actually did work
                                 // ($0.00 cost means Claude exited without making any API calls)
                                 if session.cost_usd > 0.0 {
-                                    let _ = db.update_task(
+                                    if let Err(e) = db.update_task(
                                         &task_id_owned,
                                         &crate::db::queries::UpdateTask {
                                             status: Some("done".to_string()),
@@ -493,14 +520,16 @@ impl AgentManager {
                                             priority: None,
                                             depends_on: None,
                                         },
-                                    );
+                                    ) {
+                                        tracing::error!("Failed to update task {} to done for agent {}: {}", task_id_owned, run_id, e);
+                                    }
                                     "done"
                                 } else {
                                     tracing::warn!(
                                         "Agent {} exited successfully but cost $0.00 — no work was done, marking as failed",
                                         run_id
                                     );
-                                    let _ = db.update_task(
+                                    if let Err(e) = db.update_task(
                                         &task_id_owned,
                                         &crate::db::queries::UpdateTask {
                                             status: Some("failed".to_string()),
@@ -509,12 +538,14 @@ impl AgentManager {
                                             priority: None,
                                             depends_on: None,
                                         },
-                                    );
+                                    ) {
+                                        tracing::error!("Failed to update task {} to failed (no work done) for agent {}: {}", task_id_owned, run_id, e);
+                                    }
                                     "failed"
                                 }
                             }
                             _ => {
-                                let _ = db.update_task(
+                                if let Err(e) = db.update_task(
                                     &task_id_owned,
                                     &crate::db::queries::UpdateTask {
                                         status: Some("failed".to_string()),
@@ -523,13 +554,17 @@ impl AgentManager {
                                         priority: None,
                                         depends_on: None,
                                     },
-                                );
+                                ) {
+                                    tracing::error!("Failed to update task {} to failed (exit error) for agent {}: {}", task_id_owned, run_id, e);
+                                }
                                 "failed"
                             }
                         }
                     };
 
-                    let _ = db.update_agent_run_status(&run_id, final_status);
+                    if let Err(e) = db.update_agent_run_status(&run_id, final_status) {
+                        tracing::error!("Failed to update agent run status to {} for {}: {}", final_status, run_id, e);
+                    }
                     session.status = match final_status {
                         "done" => AgentStatus::Done,
                         "killed" => AgentStatus::Killed,
@@ -537,9 +572,9 @@ impl AgentManager {
                     };
 
                     // Cleanup worktree
-                    let _ =
-                        worktree::remove_worktree(&session.repo_path, &session.worktree_path)
-                            .await;
+                    if let Err(e) = worktree::remove_worktree(&session.repo_path, &session.worktree_path).await {
+                        tracing::error!("Failed to remove worktree {} for agent {}: {}", session.worktree_path.display(), run_id, e);
+                    }
 
                     // Remove from live sessions
                     sessions.remove(&run_id);
