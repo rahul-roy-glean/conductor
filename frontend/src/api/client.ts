@@ -1,4 +1,4 @@
-import type { GoalSpace, Task, AgentRun, AgentEvent, Stats, OperationStarted } from '../types';
+import type { GoalSpace, GoalSettings, Task, AgentRun, AgentEvent, Stats, OperationStarted } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
@@ -28,7 +28,7 @@ export function createGoal(data: { name: string; description: string; repo_path:
   return request('/goals', { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateGoal(id: string, data: Partial<Pick<GoalSpace, 'name' | 'description' | 'status'>>): Promise<GoalSpace> {
+export function updateGoal(id: string, data: Partial<Pick<GoalSpace, 'name' | 'description' | 'status'>> & { settings?: GoalSettings }): Promise<GoalSpace> {
   return request(`/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 

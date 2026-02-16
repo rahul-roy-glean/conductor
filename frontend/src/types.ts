@@ -1,3 +1,12 @@
+export interface GoalSettings {
+  model?: string;
+  max_budget_usd?: number;
+  max_turns?: number;
+  allowed_tools?: string[];
+  permission_mode?: string;
+  system_prompt?: string;
+}
+
 export interface GoalSpace {
   id: string;
   name: string;
@@ -6,6 +15,7 @@ export interface GoalSpace {
   repo_path: string;
   created_at: string;
   updated_at: string;
+  settings: GoalSettings;
 }
 
 export interface Task {

@@ -4,8 +4,8 @@ import {
   listGoals, getGoal, listTasks, createTask, createGoal, updateGoal, deleteGoal, decomposeGoal, dispatchGoal,
   retryTask, retryAllFailed, dispatchTask,
 } from '../api/client';
-import type { GoalSpace, Task, OperationUpdate } from '../types';
-import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle } from 'lucide-react';
+import type { GoalSpace, GoalSettings, Task, OperationUpdate } from '../types';
+import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle, Settings, ChevronUp } from 'lucide-react';
 import { useToast } from './ToastProvider';
 import { useAgentEvents } from '../hooks/useAgentEvents';
 
@@ -312,6 +312,11 @@ function GoalDetail() {
   const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
   const prevOpStatusRef = useRef<string | null>(null);
 
+  // Settings panel state
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState<GoalSettings>({});
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const activeOp = activeOperationId ? operations.get(activeOperationId) : undefined;
   const operationInProgress = activeOp?.status === 'running';
 
@@ -343,6 +348,12 @@ function GoalDetail() {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (goal) {
+      setSettingsForm(goal.settings || {});
+    }
+  }, [goal]);
 
   const handleAddTask = async () => {
     if (!id || !newTitle.trim()) return;
@@ -463,6 +474,29 @@ function GoalDetail() {
     }
   };
 
+  const handleSaveSettings = async () => {
+    if (!id) return;
+    setSavingSettings(true);
+    try {
+      await updateGoal(id, { settings: settingsForm });
+      addToast('success', 'Settings saved');
+      setShowSettings(false);
+      loadData();
+    } catch {
+      addToast('error', 'Failed to save settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleToolToggle = (tool: string) => {
+    const current = settingsForm.allowed_tools || [];
+    const newTools = current.includes(tool)
+      ? current.filter((t) => t !== tool)
+      : [...current, tool];
+    setSettingsForm({ ...settingsForm, allowed_tools: newTools });
+  };
+
   if (!goal) return <p className="text-gray-400 p-8">Loading goal...</p>;
 
   return (
@@ -513,11 +547,53 @@ function GoalDetail() {
                   </span>
                 )}
               </div>
+              {/* Settings badges */}
+              {goal.settings && (goal.settings.model || goal.settings.max_budget_usd || goal.settings.max_turns || goal.settings.permission_mode || (goal.settings.allowed_tools && goal.settings.allowed_tools.length > 0) || goal.settings.system_prompt) && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  {goal.settings.model && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-800">
+                      Model: {goal.settings.model}
+                    </span>
+                  )}
+                  {goal.settings.max_budget_usd !== undefined && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-green-900/30 text-green-300 border border-green-800">
+                      Budget: ${goal.settings.max_budget_usd}
+                    </span>
+                  )}
+                  {goal.settings.max_turns !== undefined && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-purple-900/30 text-purple-300 border border-purple-800">
+                      Turns: {goal.settings.max_turns}
+                    </span>
+                  )}
+                  {goal.settings.permission_mode && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-orange-900/30 text-orange-300 border border-orange-800">
+                      Mode: {goal.settings.permission_mode}
+                    </span>
+                  )}
+                  {goal.settings.allowed_tools && goal.settings.allowed_tools.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800">
+                      Tools: {goal.settings.allowed_tools.length}
+                    </span>
+                  )}
+                  {goal.settings.system_prompt && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-pink-900/30 text-pink-300 border border-pink-800">
+                      Custom prompt
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}>
                 {goal.status}
               </span>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-1.5 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Settings"
+              >
+                <Settings size={14} />
+              </button>
               <button
                 onClick={handleEdit}
                 className="p-1.5 text-gray-400 hover:text-gray-200 transition-colors"
@@ -537,6 +613,127 @@ function GoalDetail() {
           </div>
         )}
       </div>
+
+      {/* Settings Panel */}
+      {showSettings && (
+        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 space-y-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-gray-100">Agent Settings</h3>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="text-gray-400 hover:text-gray-200"
+            >
+              <ChevronUp size={16} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Model */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Model</label>
+              <select
+                value={settingsForm.model || ''}
+                onChange={(e) => setSettingsForm({ ...settingsForm, model: e.target.value || undefined })}
+                className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">Default</option>
+                <option value="sonnet">Sonnet</option>
+                <option value="opus">Opus</option>
+                <option value="haiku">Haiku</option>
+              </select>
+            </div>
+
+            {/* Max Budget */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Max Budget (USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={settingsForm.max_budget_usd || ''}
+                onChange={(e) => setSettingsForm({ ...settingsForm, max_budget_usd: e.target.value ? parseFloat(e.target.value) : undefined })}
+                placeholder="No limit"
+                className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Max Turns */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Max Turns</label>
+              <input
+                type="number"
+                min="1"
+                value={settingsForm.max_turns || ''}
+                onChange={(e) => setSettingsForm({ ...settingsForm, max_turns: e.target.value ? parseInt(e.target.value) : undefined })}
+                placeholder="No limit"
+                className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Permission Mode */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Permission Mode</label>
+              <select
+                value={settingsForm.permission_mode || ''}
+                onChange={(e) => setSettingsForm({ ...settingsForm, permission_mode: e.target.value || undefined })}
+                className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
+              >
+                <option value="">Default</option>
+                <option value="default">Default</option>
+                <option value="acceptEdits">Accept Edits</option>
+                <option value="bypassPermissions">Bypass Permissions</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Allowed Tools */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">Allowed Tools</label>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {['Bash', 'Read', 'Edit', 'Write', 'Grep', 'Glob', 'WebFetch', 'WebSearch', 'NotebookEdit'].map((tool) => (
+                <label key={tool} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(settingsForm.allowed_tools || []).includes(tool)}
+                    onChange={() => handleToolToggle(tool)}
+                    className="rounded border-gray-600 bg-gray-900 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-800"
+                  />
+                  {tool}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* System Prompt */}
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">System Prompt (Additional Instructions)</label>
+            <textarea
+              value={settingsForm.system_prompt || ''}
+              onChange={(e) => setSettingsForm({ ...settingsForm, system_prompt: e.target.value || undefined })}
+              placeholder="Optional additional instructions appended to each agent"
+              className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 h-24 resize-none focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Save Buttons */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleSaveSettings}
+              disabled={savingSettings}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingSettings && <Loader2 size={14} className="animate-spin" />}
+              Save Settings
+            </button>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="px-3 py-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Status controls */}
       <div className="flex gap-2">
