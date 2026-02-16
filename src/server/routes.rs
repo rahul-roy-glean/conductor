@@ -226,6 +226,7 @@ async fn decompose_goal(
                                 })
                             })
                             .collect(),
+                        settings: Default::default(),
                     };
 
                     match state.db.create_task(&gs_id, &resolved) {
@@ -332,6 +333,7 @@ async fn dispatch_goal(
         let mut agents_spawned = 0;
 
         for task in &unblocked {
+            let effective = goal.settings.merge(&task.settings);
             let prompt = format!(
                 "You are working on the following task as part of the goal: {}\n\n\
                  Task: {}\n\n\
@@ -347,12 +349,12 @@ async fn dispatch_goal(
                     &goal_space_id,
                     &prompt,
                     &goal.repo_path,
-                    &goal.settings.model(),
-                    Some(goal.settings.max_budget_usd()),
-                    Some(goal.settings.max_turns()),
-                    Some(goal.settings.allowed_tools()),
-                    goal.settings.permission_mode(),
-                    goal.settings.system_prompt(),
+                    &effective.model(),
+                    Some(effective.max_budget_usd()),
+                    Some(effective.max_turns()),
+                    Some(effective.allowed_tools()),
+                    effective.permission_mode(),
+                    effective.system_prompt(),
                 )
                 .await
             {
@@ -437,6 +439,7 @@ async fn retry_task(
         description: None,
         priority: None,
         depends_on: None,
+    ..Default::default()
     };
 
     match state.db.update_task(&id, &update) {
@@ -479,6 +482,7 @@ async fn retry_all_failed(
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             };
             if state.db.update_task(&task.id, &update).is_ok() {
                 retried += 1;
@@ -545,6 +549,7 @@ async fn dispatch_task(
     let op_id = operation_id.clone();
     let state = Arc::clone(&state);
     tokio::spawn(async move {
+        let effective = goal.settings.merge(&task.settings);
         let prompt = format!(
             "You are working on the following task as part of the goal: {}\n\n\
              Task: {}\n\n\
@@ -560,12 +565,12 @@ async fn dispatch_task(
                 &goal_space_id,
                 &prompt,
                 &goal.repo_path,
-                &goal.settings.model(),
-                Some(goal.settings.max_budget_usd()),
-                Some(goal.settings.max_turns()),
-                Some(goal.settings.allowed_tools()),
-                goal.settings.permission_mode(),
-                goal.settings.system_prompt(),
+                &effective.model(),
+                Some(effective.max_budget_usd()),
+                Some(effective.max_turns()),
+                Some(effective.allowed_tools()),
+                effective.permission_mode(),
+                effective.system_prompt(),
             )
             .await
         {

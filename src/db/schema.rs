@@ -22,6 +22,7 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
             status TEXT NOT NULL DEFAULT 'pending',
             priority INTEGER NOT NULL DEFAULT 0,
             depends_on TEXT NOT NULL DEFAULT '[]',
+            settings TEXT NOT NULL DEFAULT '{}',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -83,6 +84,19 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
     if !table_info.contains(&"settings".to_string()) {
         conn.execute(
             "ALTER TABLE goal_spaces ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'",
+            [],
+        )?;
+    }
+
+    // Migration: Add settings column to tasks table
+    let task_info: Vec<String> = conn
+        .prepare("PRAGMA table_info(tasks)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if !task_info.contains(&"settings".to_string()) {
+        conn.execute(
+            "ALTER TABLE tasks ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'",
             [],
         )?;
     }

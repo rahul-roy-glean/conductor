@@ -497,6 +497,7 @@ async fn test_list_tasks() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -509,6 +510,7 @@ async fn test_list_tasks() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -550,6 +552,7 @@ async fn test_update_task() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -596,6 +599,7 @@ async fn test_retry_task() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -611,6 +615,7 @@ async fn test_retry_task() {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )
         .unwrap();
@@ -694,6 +699,7 @@ async fn test_get_agent_with_data() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -741,6 +747,7 @@ async fn test_get_agent_events() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -866,6 +873,7 @@ async fn test_stats_with_data() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -970,6 +978,7 @@ async fn test_stop_hook_marks_agent_done() {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();

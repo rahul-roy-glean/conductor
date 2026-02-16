@@ -360,6 +360,7 @@ pub fn parse_decomposition_output(stdout: &str) -> Result<Vec<CreateTask>> {
                 .into_iter()
                 .map(|i| format!("__index_{}", i))
                 .collect(),
+            settings: Default::default(),
         })
         .collect();
 

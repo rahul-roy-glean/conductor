@@ -276,6 +276,7 @@ pub async fn cleanup_stale(
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         );
         report.runs_marked_failed += 1;

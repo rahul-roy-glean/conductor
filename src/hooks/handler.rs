@@ -55,6 +55,7 @@ pub async fn handle_stop_hook(
                     description: None,
                     priority: None,
                     depends_on: None,
+                ..Default::default()
                 },
             ) {
                 tracing::error!("Failed to update task {} to done via stop hook: {}", agent.task_id, e);

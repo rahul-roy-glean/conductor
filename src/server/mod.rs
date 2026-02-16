@@ -118,6 +118,9 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
 
         let mut spawned = 0;
         for task in &unblocked {
+            // Merge task-level settings over goal-level settings
+            let effective = goal.settings.merge(&task.settings);
+
             let prompt = format!(
                 "You are working on the following task as part of the goal: {}\n\n\
                  Task: {}\n\n\
@@ -133,12 +136,12 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
                     &goal_space_id,
                     &prompt,
                     &goal.repo_path,
-                    &goal.settings.model(),
-                    Some(goal.settings.max_budget_usd()),
-                    Some(goal.settings.max_turns()),
-                    Some(goal.settings.allowed_tools()),
-                    goal.settings.permission_mode(),
-                    goal.settings.system_prompt(),
+                    &effective.model(),
+                    Some(effective.max_budget_usd()),
+                    Some(effective.max_turns()),
+                    Some(effective.allowed_tools()),
+                    effective.permission_mode(),
+                    effective.system_prompt(),
                 )
                 .await
             {

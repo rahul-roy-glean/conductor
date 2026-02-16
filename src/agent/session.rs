@@ -200,6 +200,7 @@ impl AgentManager {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )?;
 
@@ -549,6 +550,7 @@ impl AgentManager {
                                 description: None,
                                 priority: None,
                                 depends_on: None,
+                            ..Default::default()
                             },
                         ) {
                             tracing::error!("Failed to update task {} to failed (timeout) for agent {}: {}", task_id_owned, run_id, e);
@@ -563,6 +565,7 @@ impl AgentManager {
                                 description: None,
                                 priority: None,
                                 depends_on: None,
+                            ..Default::default()
                             },
                         ) {
                             tracing::error!("Failed to update task {} to failed (budget exceeded) for agent {}: {}", task_id_owned, run_id, e);
@@ -584,6 +587,7 @@ impl AgentManager {
                                             description: None,
                                             priority: None,
                                             depends_on: None,
+                                        ..Default::default()
                                         },
                                     ) {
                                         tracing::error!("Failed to update task {} to done for agent {}: {}", task_id_owned, run_id, e);
@@ -602,6 +606,7 @@ impl AgentManager {
                                             description: None,
                                             priority: None,
                                             depends_on: None,
+                                        ..Default::default()
                                         },
                                     ) {
                                         tracing::error!("Failed to update task {} to failed (no work done) for agent {}: {}", task_id_owned, run_id, e);
@@ -618,6 +623,7 @@ impl AgentManager {
                                         description: None,
                                         priority: None,
                                         depends_on: None,
+                                    ..Default::default()
                                     },
                                 ) {
                                     tracing::error!("Failed to update task {} to failed (exit error) for agent {}: {}", task_id_owned, run_id, e);

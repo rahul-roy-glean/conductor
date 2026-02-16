@@ -75,6 +75,19 @@ impl GoalSettings {
     pub fn system_prompt(&self) -> Option<String> {
         self.system_prompt.clone()
     }
+
+    /// Merge task-level settings over goal-level settings.
+    /// Task settings override goal settings where present.
+    pub fn merge(&self, task_settings: &GoalSettings) -> GoalSettings {
+        GoalSettings {
+            model: task_settings.model.clone().or_else(|| self.model.clone()),
+            max_budget_usd: task_settings.max_budget_usd.or(self.max_budget_usd),
+            max_turns: task_settings.max_turns.or(self.max_turns),
+            allowed_tools: task_settings.allowed_tools.clone().or_else(|| self.allowed_tools.clone()),
+            permission_mode: task_settings.permission_mode.clone().or_else(|| self.permission_mode.clone()),
+            system_prompt: task_settings.system_prompt.clone().or_else(|| self.system_prompt.clone()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -110,6 +123,7 @@ pub struct Task {
     pub status: String,
     pub priority: i32,
     pub depends_on: Vec<String>,
+    pub settings: GoalSettings,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -122,15 +136,18 @@ pub struct CreateTask {
     pub priority: i32,
     #[serde(default)]
     pub depends_on: Vec<String>,
+    #[serde(default)]
+    pub settings: GoalSettings,
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, Default, serde::Deserialize)]
 pub struct UpdateTask {
     pub title: Option<String>,
     pub description: Option<String>,
     pub status: Option<String>,
     pub priority: Option<i32>,
     pub depends_on: Option<Vec<String>>,
+    pub settings: Option<GoalSettings>,
 }
 
 // ── Agent Run types ──
@@ -342,13 +359,14 @@ impl Database {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
         let depends_on_json = serde_json::to_string(&input.depends_on)?;
+        let settings_json = serde_json::to_string(&input.settings)?;
 
         {
             let conn = self.conn();
             conn.execute(
-                "INSERT INTO tasks (id, goal_space_id, title, description, status, priority, depends_on, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7, ?8)",
-                params![id, goal_space_id, input.title, input.description, input.priority, depends_on_json, now, now],
+                "INSERT INTO tasks (id, goal_space_id, title, description, status, priority, depends_on, settings, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, 'pending', ?5, ?6, ?7, ?8, ?9)",
+                params![id, goal_space_id, input.title, input.description, input.priority, depends_on_json, settings_json, now, now],
             )?;
         }
 
@@ -367,6 +385,7 @@ impl Database {
             status: "pending".to_string(),
             priority: input.priority,
             depends_on: input.depends_on.clone(),
+            settings: input.settings.clone(),
             created_at: now.clone(),
             updated_at: now,
         })
@@ -375,7 +394,7 @@ impl Database {
     pub fn list_tasks(&self, goal_space_id: &str) -> Result<Vec<Task>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT id, goal_space_id, title, description, status, priority, depends_on, created_at, updated_at
+            "SELECT id, goal_space_id, title, description, status, priority, depends_on, settings, created_at, updated_at
              FROM tasks WHERE goal_space_id = ?1 ORDER BY priority DESC, created_at ASC",
         )?;
 
@@ -384,6 +403,9 @@ impl Database {
                 let depends_on_str: String = row.get(6)?;
                 let depends_on: Vec<String> =
                     serde_json::from_str(&depends_on_str).unwrap_or_default();
+                let settings_str: String = row.get(7)?;
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(Task {
                     id: row.get(0)?,
                     goal_space_id: row.get(1)?,
@@ -392,8 +414,9 @@ impl Database {
                     status: row.get(4)?,
                     priority: row.get(5)?,
                     depends_on,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
+                    settings,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -404,7 +427,7 @@ impl Database {
     pub fn get_task(&self, id: &str) -> Result<Option<Task>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT id, goal_space_id, title, description, status, priority, depends_on, created_at, updated_at
+            "SELECT id, goal_space_id, title, description, status, priority, depends_on, settings, created_at, updated_at
              FROM tasks WHERE id = ?1",
         )?;
 
@@ -413,6 +436,9 @@ impl Database {
                 let depends_on_str: String = row.get(6)?;
                 let depends_on: Vec<String> =
                     serde_json::from_str(&depends_on_str).unwrap_or_default();
+                let settings_str: String = row.get(7)?;
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(Task {
                     id: row.get(0)?,
                     goal_space_id: row.get(1)?,
@@ -421,8 +447,9 @@ impl Database {
                     status: row.get(4)?,
                     priority: row.get(5)?,
                     depends_on,
-                    created_at: row.get(7)?,
-                    updated_at: row.get(8)?,
+                    settings,
+                    created_at: row.get(8)?,
+                    updated_at: row.get(9)?,
                 })
             })
             .optional()?;
@@ -462,6 +489,13 @@ impl Database {
             let json = serde_json::to_string(depends_on)?;
             conn.execute(
                 "UPDATE tasks SET depends_on = ?1, updated_at = ?2 WHERE id = ?3",
+                params![json, now, id],
+            )?;
+        }
+        if let Some(ref settings) = input.settings {
+            let json = serde_json::to_string(settings)?;
+            conn.execute(
+                "UPDATE tasks SET settings = ?1, updated_at = ?2 WHERE id = ?3",
                 params![json, now, id],
             )?;
         }
@@ -955,6 +989,7 @@ mod tests {
                     description: "Do something".into(),
                     priority: 5,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -984,6 +1019,7 @@ mod tests {
                 description: "D".into(),
                 priority: 1,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -994,6 +1030,7 @@ mod tests {
                 description: "D".into(),
                 priority: 10,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -1004,6 +1041,7 @@ mod tests {
                 description: "D".into(),
                 priority: 5,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -1034,6 +1072,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1064,6 +1103,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1076,6 +1116,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )
         .unwrap();
@@ -1105,6 +1146,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1117,6 +1159,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![t1.id.clone()],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1145,6 +1188,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1157,6 +1201,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![t1.id.clone()],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1175,6 +1220,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )
         .unwrap();
@@ -1204,6 +1250,7 @@ mod tests {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -1214,6 +1261,7 @@ mod tests {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -1224,6 +1272,7 @@ mod tests {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
@@ -1252,6 +1301,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1264,6 +1314,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )
         .unwrap();
@@ -1293,6 +1344,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1330,6 +1382,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1367,6 +1420,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1402,6 +1456,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1436,6 +1491,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1470,6 +1526,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1510,6 +1567,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1551,6 +1609,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1602,6 +1661,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1613,6 +1673,7 @@ mod tests {
                     description: "D".into(),
                     priority: 0,
                     depends_on: vec![],
+                    settings: Default::default(),
                 },
             )
             .unwrap();
@@ -1626,6 +1687,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
+            ..Default::default()
             },
         )
         .unwrap();
@@ -1691,6 +1753,7 @@ mod tests {
                 description: "D".into(),
                 priority: 0,
                 depends_on: vec![],
+                settings: Default::default(),
             },
         )
         .unwrap();
