@@ -631,16 +631,23 @@ function GoalDetail() {
             {/* Model */}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Model</label>
-              <select
+              <input
+                type="text"
+                list="model-options"
                 value={settingsForm.model || ''}
                 onChange={(e) => setSettingsForm({ ...settingsForm, model: e.target.value || undefined })}
+                placeholder="Default (or enter custom model ID)"
                 className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
-              >
-                <option value="">Default</option>
-                <option value="sonnet">Sonnet</option>
-                <option value="opus">Opus</option>
-                <option value="haiku">Haiku</option>
-              </select>
+              />
+              <datalist id="model-options">
+                <option value="claude-opus-4-6[1m]">Opus 4.6 (1M context) — claude-opus-4-6[1m]</option>
+                <option value="claude-opus-4-6">Opus 4.6 — claude-opus-4-6</option>
+                <option value="claude-sonnet-4-5-20250929">Sonnet 4.5 — claude-sonnet-4-5-20250929</option>
+                <option value="claude-3-5-haiku-20241022">Haiku 3.5 — claude-3-5-haiku-20241022</option>
+                <option value="sonnet">Sonnet (short alias)</option>
+                <option value="opus">Opus (short alias)</option>
+                <option value="haiku">Haiku (short alias)</option>
+              </datalist>
             </div>
 
             {/* Max Budget */}
