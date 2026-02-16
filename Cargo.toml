@@ -2,6 +2,8 @@
 name = "conductor"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.78"
+license = "MIT"
 description = "Local-first orchestration system for managing multiple Claude Code agents"
 
 [dependencies]
