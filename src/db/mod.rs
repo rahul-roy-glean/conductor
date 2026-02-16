@@ -29,11 +29,11 @@ impl Database {
     }
 
     pub fn run_migrations(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         schema::run_migrations(&conn)
     }
 
     pub fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap()
+        self.conn.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
