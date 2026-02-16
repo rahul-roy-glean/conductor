@@ -653,11 +653,29 @@ async fn nudge_agent(
 
     match state.agent_manager.nudge_agent(&id, message).await {
         Ok(()) => Json(json!({"ok": true})).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        )
-            .into_response(),
+        Err(e) => {
+            let err_str = e.to_string();
+            // If the agent doesn't have a session ID yet, return 409 Conflict
+            if err_str.contains("no Claude session ID yet") {
+                (
+                    StatusCode::CONFLICT,
+                    Json(json!({"error": "Agent is still starting up. Please wait a moment and try again."})),
+                )
+                    .into_response()
+            } else if err_str.contains("not found or not running") {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(json!({"error": "Agent not found or not running"})),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({"error": err_str})),
+                )
+                    .into_response()
+            }
+        }
     }
 }
 
