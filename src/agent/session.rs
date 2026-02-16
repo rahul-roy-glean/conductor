@@ -119,6 +119,8 @@ impl AgentManager {
         max_budget_usd: Option<f64>,
         max_turns: Option<u32>,
         allowed_tools: Option<Vec<String>>,
+        permission_mode: Option<String>,
+        system_prompt: Option<String>,
     ) -> Result<AgentRun> {
         let agent_run_id = uuid::Uuid::new_v4().to_string();
 
@@ -221,6 +223,14 @@ impl AgentManager {
             for tool in tools {
                 cmd.arg("--allowedTools").arg(tool);
             }
+        }
+
+        if let Some(ref mode) = permission_mode {
+            cmd.arg("--permission-mode").arg(mode);
+        }
+
+        if let Some(ref prompt) = system_prompt {
+            cmd.arg("--append-system-prompt").arg(prompt);
         }
 
         cmd.arg("--model").arg(model);

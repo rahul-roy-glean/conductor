@@ -323,17 +323,12 @@ async fn dispatch_goal(
                     &goal_space_id,
                     &prompt,
                     &goal.repo_path,
-                    "sonnet",
-                    Some(5.0),
-                    Some(50),
-                    Some(vec![
-                        "Bash".to_string(),
-                        "Read".to_string(),
-                        "Edit".to_string(),
-                        "Write".to_string(),
-                        "Grep".to_string(),
-                        "Glob".to_string(),
-                    ]),
+                    &goal.settings.model(),
+                    Some(goal.settings.max_budget_usd()),
+                    Some(goal.settings.max_turns()),
+                    Some(goal.settings.allowed_tools()),
+                    goal.settings.permission_mode(),
+                    goal.settings.system_prompt(),
                 )
                 .await
             {
@@ -541,17 +536,12 @@ async fn dispatch_task(
                 &goal_space_id,
                 &prompt,
                 &goal.repo_path,
-                "sonnet",
-                Some(5.0),
-                Some(50),
-                Some(vec![
-                    "Bash".to_string(),
-                    "Read".to_string(),
-                    "Edit".to_string(),
-                    "Write".to_string(),
-                    "Grep".to_string(),
-                    "Glob".to_string(),
-                ]),
+                &goal.settings.model(),
+                Some(goal.settings.max_budget_usd()),
+                Some(goal.settings.max_turns()),
+                Some(goal.settings.allowed_tools()),
+                goal.settings.permission_mode(),
+                goal.settings.system_prompt(),
             )
             .await
         {
