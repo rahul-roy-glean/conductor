@@ -61,40 +61,7 @@ pub fn parse_stream_json_line(line: &str) -> Option<ParsedEvent> {
 
     match event_type {
         "assistant" => {
-            // Assistant message - could contain text or tool_use, and usage data
-            // First check for usage data (token counts)
-            if let Some(usage) = v.get("message").and_then(|m| m.get("usage")) {
-                let input_tokens = usage.get("input_tokens").and_then(|t| t.as_i64()).unwrap_or(0);
-                let output_tokens = usage.get("output_tokens").and_then(|t| t.as_i64()).unwrap_or(0);
-                let cache_creation_tokens = usage.get("cache_creation_input_tokens").and_then(|t| t.as_i64()).unwrap_or(0);
-                let cache_read_tokens = usage.get("cache_read_input_tokens").and_then(|t| t.as_i64()).unwrap_or(0);
-
-                // Calculate total input tokens including cache tokens
-                let total_input_tokens = input_tokens + cache_creation_tokens + cache_read_tokens;
-
-                // Estimate cost based on tokens (approximate)
-                // Claude Opus 4.6: $15/MTok input, $75/MTok output (rough average)
-                let cost_usd = (total_input_tokens as f64 * 15.0 / 1_000_000.0)
-                    + (output_tokens as f64 * 75.0 / 1_000_000.0);
-
-                let model = v
-                    .get("message")
-                    .and_then(|m| m.get("model"))
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                // Return ApiRequest event with token data
-                return Some(ParsedEvent::ApiRequest {
-                    model,
-                    cost_usd,
-                    input_tokens: total_input_tokens,
-                    output_tokens,
-                    duration_ms: 0, // Not available in assistant event
-                });
-            }
-
-            // Otherwise, check for tool_use or text content
+            // Assistant message - check for tool_use or text content
             if let Some(content) = v.get("message").and_then(|m| m.get("content")) {
                 if let Some(content_arr) = content.as_array() {
                     for block in content_arr {
@@ -673,21 +640,16 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_assistant_with_usage() {
+    fn test_parse_assistant_with_usage_still_parses_content() {
+        // Assistant messages with usage data should still parse content (text/tool_use),
+        // not be hijacked as ApiRequest events. Token tracking happens in session.rs.
         let line = r#"{"type":"assistant","message":{"model":"claude-opus-4-6","id":"msg_test","type":"message","role":"assistant","content":[{"type":"text","text":"Hello"}],"usage":{"input_tokens":100,"cache_creation_input_tokens":1000,"cache_read_input_tokens":500,"output_tokens":50}},"session_id":"sess-123"}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ApiRequest {
-                model,
-                input_tokens,
-                output_tokens,
-                ..
-            } => {
-                assert_eq!(model, "claude-opus-4-6");
-                assert_eq!(input_tokens, 1600); // 100 + 1000 + 500
-                assert_eq!(output_tokens, 50);
+            ParsedEvent::TextMessage { text } => {
+                assert_eq!(text, "Hello");
             }
-            _ => panic!("Expected ApiRequest, got {:?}", event),
+            _ => panic!("Expected TextOutput, got {:?}", event),
         }
     }
 
