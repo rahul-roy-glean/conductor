@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AgentCard from "./AgentCard";
+import { ToastProvider } from "./ToastProvider";
 import type { AgentRun } from "../types";
 
 // Mock the API client to avoid real fetch calls
@@ -41,7 +42,9 @@ function renderCard(
 ) {
   return render(
     <MemoryRouter>
-      <AgentCard agent={agent} {...props} />
+      <ToastProvider>
+        <AgentCard agent={agent} {...props} />
+      </ToastProvider>
     </MemoryRouter>,
   );
 }
