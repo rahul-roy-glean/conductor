@@ -1,16 +1,21 @@
 use axum::{
     extract::{Json, Path, State},
-    http::StatusCode,
+    http::{header, StatusCode, Uri},
     response::IntoResponse,
     routing::{get, post, put},
     Router,
 };
+use rust_embed::Embed;
 use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
+#[derive(Embed)]
+#[folder = "frontend/dist/"]
+struct FrontendAssets;
+
 use crate::agent::session::BroadcastEvent;
-use crate::db::queries::{CreateGoalSpace, CreateTask, GoalSettings, UpdateTask};
+use crate::db::queries::{CreateGoalSpace, CreateTask, UpdateTask};
 use crate::hooks;
 use crate::server::sse;
 use crate::server::AppState;
@@ -25,10 +30,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         )
         .route("/api/goals/{id}/decompose", post(decompose_goal))
         .route("/api/goals/{id}/dispatch", post(dispatch_goal))
-        .route(
-            "/api/goals/{id}/tasks",
-            get(list_tasks).post(create_task),
-        )
+        .route("/api/goals/{id}/tasks", get(list_tasks).post(create_task))
         // Tasks
         .route("/api/tasks/{id}", put(update_task))
         .route("/api/tasks/{id}/retry", post(retry_task))
@@ -51,10 +53,39 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         )
         // Stats
         .route("/api/stats", get(get_stats))
+        .fallback(static_handler)
         .layer(
             CorsLayer::permissive(), // Allow frontend dev server
         )
         .with_state(state)
+}
+
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+    // Try the exact path first, then fall back to index.html for SPA routing
+    match FrontendAssets::get(path) {
+        Some(file) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            (
+                StatusCode::OK,
+                [(header::CONTENT_TYPE, mime.as_ref().to_string())],
+                file.data.to_vec(),
+            )
+                .into_response()
+        }
+        None => {
+            // Serve index.html for client-side routing
+            match FrontendAssets::get("index.html") {
+                Some(file) => (
+                    StatusCode::OK,
+                    [(header::CONTENT_TYPE, "text/html".to_string())],
+                    file.data.to_vec(),
+                )
+                    .into_response(),
+                None => (StatusCode::NOT_FOUND, "Frontend assets not found").into_response(),
+            }
+        }
+    }
 }
 
 // ── Goal Space Handlers ──
@@ -84,10 +115,7 @@ async fn list_goals(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     }
 }
 
-async fn get_goal(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
+async fn get_goal(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> impl IntoResponse {
     match state.db.get_goal_space(&id) {
         Ok(Some(goal)) => Json(json!(goal)).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
@@ -163,7 +191,11 @@ async fn decompose_goal(
     let goal = match state.db.get_goal_space(&id) {
         Ok(Some(g)) => g,
         Ok(None) => {
-            return (StatusCode::NOT_FOUND, Json(json!({"error": "Goal not found"}))).into_response()
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error": "Goal not found"})),
+            )
+                .into_response()
         }
         Err(e) => {
             return (
@@ -198,7 +230,9 @@ async fn decompose_goal(
             &state.event_tx,
             &op_id,
             &gs_id,
-        ).await {
+        )
+        .await
+        {
             Ok(tasks) => {
                 let mut created_tasks = Vec::new();
                 let mut failed = false;
@@ -231,8 +265,7 @@ async fn decompose_goal(
 
                     match state.db.create_task(&gs_id, &resolved) {
                         Ok(task) => {
-                            index_to_id
-                                .insert(format!("__index_{}", i), task.id.clone());
+                            index_to_id.insert(format!("__index_{}", i), task.id.clone());
                             created_tasks.push(task);
                         }
                         Err(e) => {
@@ -287,7 +320,11 @@ async fn dispatch_goal(
     let goal = match state.db.get_goal_space(&id) {
         Ok(Some(g)) => g,
         Ok(None) => {
-            return (StatusCode::NOT_FOUND, Json(json!({"error": "Goal not found"}))).into_response()
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error": "Goal not found"})),
+            )
+                .into_response()
         }
         Err(e) => {
             return (
@@ -370,8 +407,14 @@ async fn dispatch_goal(
             goal_space_id: goal_space_id.clone(),
             operation_type: "dispatch".to_string(),
             status: "completed".to_string(),
-            message: format!("Spawned {} agents for {} tasks", agents_spawned, unblocked.len()),
-            result: Some(json!({"agents_spawned": agents_spawned, "tasks_available": unblocked.len()})),
+            message: format!(
+                "Spawned {} agents for {} tasks",
+                agents_spawned,
+                unblocked.len()
+            ),
+            result: Some(
+                json!({"agents_spawned": agents_spawned, "tasks_available": unblocked.len()}),
+            ),
         });
     });
 
@@ -439,7 +482,7 @@ async fn retry_task(
         description: None,
         priority: None,
         depends_on: None,
-    ..Default::default()
+        ..Default::default()
     };
 
     match state.db.update_task(&id, &update) {
@@ -482,7 +525,7 @@ async fn retry_all_failed(
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             };
             if state.db.update_task(&task.id, &update).is_ok() {
                 retried += 1;
@@ -506,7 +549,11 @@ async fn dispatch_task(
     let task = match state.db.get_task(&task_id) {
         Ok(Some(t)) => t,
         Ok(None) => {
-            return (StatusCode::NOT_FOUND, Json(json!({"error": "Task not found"}))).into_response()
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error": "Task not found"})),
+            )
+                .into_response()
         }
         Err(e) => {
             return (
@@ -521,7 +568,11 @@ async fn dispatch_task(
     let goal = match state.db.get_goal_space(&task.goal_space_id) {
         Ok(Some(g)) => g,
         Ok(None) => {
-            return (StatusCode::NOT_FOUND, Json(json!({"error": "Goal space not found"}))).into_response()
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error": "Goal space not found"})),
+            )
+                .into_response()
         }
         Err(e) => {
             return (
@@ -638,10 +689,7 @@ async fn nudge_agent(
     Path(id): Path<String>,
     Json(input): Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    let message = input
-        .get("message")
-        .and_then(|m| m.as_str())
-        .unwrap_or("");
+    let message = input.get("message").and_then(|m| m.as_str()).unwrap_or("");
 
     if message.is_empty() {
         return (

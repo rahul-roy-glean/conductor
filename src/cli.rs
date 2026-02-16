@@ -2,7 +2,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "conductor", about = "Orchestrate multiple Claude Code agents")]
+#[command(
+    name = "conductor",
+    about = "Orchestrate multiple Claude Code agents",
+    version
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -133,10 +137,7 @@ pub async fn handle_goal_command(command: GoalCommands) -> Result<()> {
                 if goals.is_empty() {
                     println!("No goal spaces found.");
                 } else {
-                    println!(
-                        "{:<38} {:<10} {:<40} {}",
-                        "ID", "STATUS", "NAME", "CREATED"
-                    );
+                    println!("{:<38} {:<10} {:<40} CREATED", "ID", "STATUS", "NAME");
                     println!("{}", "-".repeat(100));
                     for goal in goals {
                         println!(
@@ -156,7 +157,10 @@ pub async fn handle_goal_command(command: GoalCommands) -> Result<()> {
         GoalCommands::Decompose { goal_id } => {
             println!("Decomposing goal {}...", goal_id);
             let resp = client
-                .post(format!("{}/api/goals/{}/decompose", DEFAULT_API_BASE, goal_id))
+                .post(format!(
+                    "{}/api/goals/{}/decompose",
+                    DEFAULT_API_BASE, goal_id
+                ))
                 .send()
                 .await?;
 
@@ -184,7 +188,10 @@ pub async fn handle_goal_command(command: GoalCommands) -> Result<()> {
         GoalCommands::Dispatch { goal_id } => {
             println!("Dispatching tasks for goal {}...", goal_id);
             let resp = client
-                .post(format!("{}/api/goals/{}/dispatch", DEFAULT_API_BASE, goal_id))
+                .post(format!(
+                    "{}/api/goals/{}/dispatch",
+                    DEFAULT_API_BASE, goal_id
+                ))
                 .send()
                 .await?;
 
@@ -252,7 +259,10 @@ pub async fn handle_inspect(agent_id: &str) -> Result<()> {
         println!("Agent: {}", agent["id"]);
         println!("  Status:     {}", agent["status"]);
         println!("  Model:      {}", agent["model"]);
-        println!("  Cost:       ${:.4}", agent["cost_usd"].as_f64().unwrap_or(0.0));
+        println!(
+            "  Cost:       ${:.4}",
+            agent["cost_usd"].as_f64().unwrap_or(0.0)
+        );
         println!("  Task:       {}", agent["task_id"]);
         println!("  Session:    {}", agent["claude_session_id"]);
         println!("  Worktree:   {}", agent["worktree_path"]);
@@ -292,7 +302,10 @@ pub async fn handle_inspect(agent_id: &str) -> Result<()> {
 pub async fn handle_nudge(agent_id: &str, message: &str) -> Result<()> {
     let client = reqwest::Client::new();
     let resp = client
-        .post(format!("{}/api/agents/{}/nudge", DEFAULT_API_BASE, agent_id))
+        .post(format!(
+            "{}/api/agents/{}/nudge",
+            DEFAULT_API_BASE, agent_id
+        ))
         .json(&serde_json::json!({ "message": message }))
         .send()
         .await?;
