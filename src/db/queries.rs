@@ -208,6 +208,29 @@ impl Database {
         Ok(())
     }
 
+    /// Atomically mark a goal as completed if and only if all its tasks are done.
+    /// Returns true if the goal was marked completed, false if not (because there are pending tasks or no tasks).
+    pub fn mark_goal_completed_if_all_tasks_done(&self, goal_space_id: &str) -> Result<bool> {
+        let conn = self.conn();
+        let now = Utc::now().to_rfc3339();
+
+        // Use a single atomic UPDATE statement that only updates if:
+        // 1. There is at least one task
+        // 2. All tasks are done
+        // 3. The goal is not already completed
+        let rows_affected = conn.execute(
+            "UPDATE goal_spaces
+             SET status = 'completed', updated_at = ?1
+             WHERE id = ?2
+               AND status != 'completed'
+               AND EXISTS (SELECT 1 FROM tasks WHERE goal_space_id = ?2)
+               AND NOT EXISTS (SELECT 1 FROM tasks WHERE goal_space_id = ?2 AND status != 'done')",
+            params![now, goal_space_id],
+        )?;
+
+        Ok(rows_affected > 0)
+    }
+
     pub fn delete_goal_space(&self, id: &str) -> Result<()> {
         let now = Utc::now().to_rfc3339();
         let conn = self.conn();
