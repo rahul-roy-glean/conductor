@@ -290,6 +290,19 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_goal_settings(&self, id: &str, settings: &GoalSettings) -> Result<()> {
+        let conn = self.conn();
+        let now = Utc::now().to_rfc3339();
+        let settings_json = serde_json::to_string(settings)?;
+
+        conn.execute(
+            "UPDATE goal_spaces SET settings = ?1, updated_at = ?2 WHERE id = ?3",
+            params![settings_json, now, id],
+        )?;
+
+        Ok(())
+    }
+
     /// Atomically mark a goal as completed if and only if all its tasks are done.
     /// Returns true if the goal was marked completed, false if not (because there are pending tasks or no tasks).
     pub fn mark_goal_completed_if_all_tasks_done(&self, goal_space_id: &str) -> Result<bool> {
