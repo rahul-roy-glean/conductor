@@ -415,12 +415,16 @@ impl AgentManager {
                                         ParsedEvent::Result {
                                             session_id,
                                             cost_usd,
+                                            input_tokens,
+                                            output_tokens,
                                             ..
                                         } => {
                                             let mut sessions = sessions.write().await;
                                             if let Some(session) = sessions.get_mut(&run_id) {
                                                 session.claude_session_id = Some(session_id.clone());
                                                 session.cost_usd = *cost_usd;
+                                                session.input_tokens = *input_tokens;
+                                                session.output_tokens = *output_tokens;
                                                 if let Err(e) = db.update_agent_run_session_id(&run_id, session_id) {
                                                     tracing::error!("Failed to update agent run session ID for {}: {}", run_id, e);
                                                 }
