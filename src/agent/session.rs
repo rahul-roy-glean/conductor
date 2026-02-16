@@ -245,65 +245,183 @@ impl AgentManager {
             let reader = BufReader::new(stdout);
             let mut lines = reader.lines();
 
-            while let Ok(Some(line)) = lines.next_line().await {
-                if line.trim().is_empty() {
-                    continue;
-                }
+            // Staleness and timeout tracking
+            let mut last_event_time = std::time::Instant::now();
+            let start_time = std::time::Instant::now();
+            let stall_timeout = std::time::Duration::from_secs(10 * 60); // 10 minutes
+            let hard_timeout = std::time::Duration::from_secs(20 * 60); // 20 minutes
+            let mut watchdog_interval = tokio::time::interval(std::time::Duration::from_secs(30));
+            watchdog_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-                if let Some(parsed) = event_parser::parse_stream_json_line(&line) {
-                    // Store in DB
-                    if let Ok(agent_event) =
-                        event_parser::store_event(&db, &run_id, &parsed, &line)
-                    {
-                        // Broadcast to SSE subscribers
-                        let _ = event_tx.send(BroadcastEvent::AgentEvent {
-                            agent_run_id: run_id.clone(),
-                            event: agent_event,
-                        });
+            // Get max_budget_usd for this run
+            let max_budget = match db.get_agent_run(&run_id) {
+                Ok(Some(agent_run)) => agent_run.max_budget_usd,
+                _ => None,
+            };
+
+            let mut timed_out = false;
+            let mut budget_exceeded = false;
+            let mut stalled = false;
+
+            loop {
+                tokio::select! {
+                    result = lines.next_line() => {
+                        match result {
+                            Ok(Some(line)) => {
+                                if line.trim().is_empty() {
+                                    continue;
+                                }
+
+                                // Update last event time
+                                last_event_time = std::time::Instant::now();
+
+                                // Clear stalled status if previously set
+                                if stalled {
+                                    stalled = false;
+                                    let mut sessions = sessions.write().await;
+                                    if let Some(session) = sessions.get_mut(&run_id) {
+                                        session.status = AgentStatus::Running;
+                                        let _ = db.update_agent_run_status(&run_id, "running");
+                                    }
+                                }
+
+                                if let Some(parsed) = event_parser::parse_stream_json_line(&line) {
+                                    // Store in DB
+                                    if let Ok(agent_event) =
+                                        event_parser::store_event(&db, &run_id, &parsed, &line)
+                                    {
+                                        // Broadcast to SSE subscribers
+                                        let _ = event_tx.send(BroadcastEvent::AgentEvent {
+                                            agent_run_id: run_id.clone(),
+                                            event: agent_event,
+                                        });
+                                    }
+
+                                    // Update cost accumulators
+                                    match &parsed {
+                                        ParsedEvent::ApiRequest {
+                                            cost_usd,
+                                            input_tokens,
+                                            output_tokens,
+                                            ..
+                                        } => {
+                                            let mut sessions = sessions.write().await;
+                                            if let Some(session) = sessions.get_mut(&run_id) {
+                                                session.cost_usd += cost_usd;
+                                                session.input_tokens += input_tokens;
+                                                session.output_tokens += output_tokens;
+                                                let _ = db.update_agent_run_cost(
+                                                    &run_id,
+                                                    session.cost_usd,
+                                                    session.input_tokens,
+                                                    session.output_tokens,
+                                                );
+
+                                                // Enforce max_budget_usd server-side
+                                                if let Some(budget) = max_budget {
+                                                    if session.cost_usd > budget {
+                                                        tracing::warn!(
+                                                            "Agent {} exceeded budget: ${:.4} > ${:.4}",
+                                                            run_id,
+                                                            session.cost_usd,
+                                                            budget
+                                                        );
+                                                        budget_exceeded = true;
+                                                        session.status = AgentStatus::Killed;
+                                                        let _ = db.update_agent_run_status(&run_id, "killed");
+                                                        let _ = db.insert_agent_event(
+                                                            &run_id,
+                                                            "error",
+                                                            None,
+                                                            &format!("Budget exceeded: ${:.4} > ${:.4}", session.cost_usd, budget),
+                                                            None,
+                                                            None,
+                                                        );
+                                                        session.process.kill().await.ok();
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        ParsedEvent::Result {
+                                            session_id,
+                                            cost_usd,
+                                            ..
+                                        } => {
+                                            let mut sessions = sessions.write().await;
+                                            if let Some(session) = sessions.get_mut(&run_id) {
+                                                session.claude_session_id = Some(session_id.clone());
+                                                session.cost_usd = *cost_usd;
+                                                let _ =
+                                                    db.update_agent_run_session_id(&run_id, session_id);
+                                                let _ = db.update_agent_run_cost(
+                                                    &run_id,
+                                                    session.cost_usd,
+                                                    session.input_tokens,
+                                                    session.output_tokens,
+                                                );
+                                            }
+                                        }
+                                        _ => {
+                                            let _ = db.update_agent_run_activity(&run_id);
+                                        }
+                                    }
+                                }
+                            }
+                            Ok(None) => {
+                                // EOF - process exited normally
+                                break;
+                            }
+                            Err(e) => {
+                                tracing::error!("Error reading stdout for agent {}: {}", run_id, e);
+                                break;
+                            }
+                        }
                     }
+                    _ = watchdog_interval.tick() => {
+                        let elapsed_since_last_event = last_event_time.elapsed();
+                        let total_elapsed = start_time.elapsed();
 
-                    // Update cost accumulators
-                    match &parsed {
-                        ParsedEvent::ApiRequest {
-                            cost_usd,
-                            input_tokens,
-                            output_tokens,
-                            ..
-                        } => {
+                        // Check hard timeout (20 minutes total)
+                        if total_elapsed >= hard_timeout {
+                            tracing::warn!("Agent {} hard timeout after {:?}", run_id, total_elapsed);
+                            timed_out = true;
                             let mut sessions = sessions.write().await;
                             if let Some(session) = sessions.get_mut(&run_id) {
-                                session.cost_usd += cost_usd;
-                                session.input_tokens += input_tokens;
-                                session.output_tokens += output_tokens;
-                                let _ = db.update_agent_run_cost(
+                                session.status = AgentStatus::Failed;
+                                let _ = db.update_agent_run_status(&run_id, "failed");
+                                let _ = db.insert_agent_event(
                                     &run_id,
-                                    session.cost_usd,
-                                    session.input_tokens,
-                                    session.output_tokens,
+                                    "error",
+                                    None,
+                                    &format!("Hard timeout after {:?}", total_elapsed),
+                                    None,
+                                    None,
                                 );
+                                session.process.kill().await.ok();
                             }
+                            break;
                         }
-                        ParsedEvent::Result {
-                            session_id,
-                            cost_usd,
-                            ..
-                        } => {
-                            let mut sessions = sessions.write().await;
-                            if let Some(session) = sessions.get_mut(&run_id) {
-                                session.claude_session_id = Some(session_id.clone());
-                                session.cost_usd = *cost_usd;
-                                let _ =
-                                    db.update_agent_run_session_id(&run_id, session_id);
-                                let _ = db.update_agent_run_cost(
-                                    &run_id,
-                                    session.cost_usd,
-                                    session.input_tokens,
-                                    session.output_tokens,
-                                );
+
+                        // Check staleness (10 minutes without events)
+                        if elapsed_since_last_event >= stall_timeout {
+                            if !stalled {
+                                tracing::warn!("Agent {} stalled - no events for {:?}", run_id, elapsed_since_last_event);
+                                stalled = true;
+                                let mut sessions = sessions.write().await;
+                                if let Some(session) = sessions.get_mut(&run_id) {
+                                    session.status = AgentStatus::Stalled;
+                                    let _ = db.update_agent_run_status(&run_id, "stalled");
+                                    let _ = db.insert_agent_event(
+                                        &run_id,
+                                        "warning",
+                                        None,
+                                        &format!("Agent stalled - no events for {:?}", elapsed_since_last_event),
+                                        None,
+                                        None,
+                                    );
+                                }
                             }
-                        }
-                        _ => {
-                            let _ = db.update_agent_run_activity(&run_id);
                         }
                     }
                 }
@@ -333,28 +451,69 @@ impl AgentManager {
             let final_status = {
                 let mut sessions = sessions.write().await;
                 if let Some(session) = sessions.get_mut(&run_id) {
-                    let exit_status = session.process.try_wait();
-                    let final_status = match exit_status {
-                        Ok(Some(status)) if status.success() => {
-                            // Only mark as done if the agent actually did work
-                            // ($0.00 cost means Claude exited without making any API calls)
-                            if session.cost_usd > 0.0 {
-                                let _ = db.update_task(
-                                    &task_id_owned,
-                                    &crate::db::queries::UpdateTask {
-                                        status: Some("done".to_string()),
-                                        title: None,
-                                        description: None,
-                                        priority: None,
-                                        depends_on: None,
-                                    },
-                                );
-                                "done"
-                            } else {
-                                tracing::warn!(
-                                    "Agent {} exited successfully but cost $0.00 — no work was done, marking as failed",
-                                    run_id
-                                );
+                    // Determine final status based on exit conditions
+                    let final_status = if timed_out {
+                        let _ = db.update_task(
+                            &task_id_owned,
+                            &crate::db::queries::UpdateTask {
+                                status: Some("failed".to_string()),
+                                title: None,
+                                description: None,
+                                priority: None,
+                                depends_on: None,
+                            },
+                        );
+                        "failed"
+                    } else if budget_exceeded {
+                        let _ = db.update_task(
+                            &task_id_owned,
+                            &crate::db::queries::UpdateTask {
+                                status: Some("failed".to_string()),
+                                title: None,
+                                description: None,
+                                priority: None,
+                                depends_on: None,
+                            },
+                        );
+                        "killed"
+                    } else {
+                        // Normal exit - check process status
+                        let exit_status = session.process.try_wait();
+                        match exit_status {
+                            Ok(Some(status)) if status.success() => {
+                                // Only mark as done if the agent actually did work
+                                // ($0.00 cost means Claude exited without making any API calls)
+                                if session.cost_usd > 0.0 {
+                                    let _ = db.update_task(
+                                        &task_id_owned,
+                                        &crate::db::queries::UpdateTask {
+                                            status: Some("done".to_string()),
+                                            title: None,
+                                            description: None,
+                                            priority: None,
+                                            depends_on: None,
+                                        },
+                                    );
+                                    "done"
+                                } else {
+                                    tracing::warn!(
+                                        "Agent {} exited successfully but cost $0.00 — no work was done, marking as failed",
+                                        run_id
+                                    );
+                                    let _ = db.update_task(
+                                        &task_id_owned,
+                                        &crate::db::queries::UpdateTask {
+                                            status: Some("failed".to_string()),
+                                            title: None,
+                                            description: None,
+                                            priority: None,
+                                            depends_on: None,
+                                        },
+                                    );
+                                    "failed"
+                                }
+                            }
+                            _ => {
                                 let _ = db.update_task(
                                     &task_id_owned,
                                     &crate::db::queries::UpdateTask {
@@ -368,26 +527,13 @@ impl AgentManager {
                                 "failed"
                             }
                         }
-                        _ => {
-                            let _ = db.update_task(
-                                &task_id_owned,
-                                &crate::db::queries::UpdateTask {
-                                    status: Some("failed".to_string()),
-                                    title: None,
-                                    description: None,
-                                    priority: None,
-                                    depends_on: None,
-                                },
-                            );
-                            "failed"
-                        }
                     };
 
                     let _ = db.update_agent_run_status(&run_id, final_status);
-                    session.status = if final_status == "done" {
-                        AgentStatus::Done
-                    } else {
-                        AgentStatus::Failed
+                    session.status = match final_status {
+                        "done" => AgentStatus::Done,
+                        "killed" => AgentStatus::Killed,
+                        _ => AgentStatus::Failed,
                     };
 
                     // Cleanup worktree
