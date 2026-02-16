@@ -15,7 +15,7 @@ jobs:
           - os: macos-14
             target: aarch64-apple-darwin
             artifact: conductor-aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             artifact: conductor-x86_64-apple-darwin
           - os: ubuntu-latest
