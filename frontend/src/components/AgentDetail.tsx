@@ -1,15 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { getAgent, getAgentEvents } from '../api/client';
-import { useAgentEvents } from '../hooks/useAgentEvents';
-import type { AgentRun, AgentEvent } from '../types';
-import NudgeDialog from './NudgeDialog';
+import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
+import { getAgent, getAgentEvents } from "../api/client";
+import { useAgentEvents } from "../hooks/useAgentEvents";
+import type { AgentRun, AgentEvent } from "../types";
+import NudgeDialog from "./NudgeDialog";
 import {
-  Terminal, AlertTriangle, GitCommit, DollarSign, Wrench, FileText, Zap,
-} from 'lucide-react';
-import { useToast } from './ToastProvider';
+  Terminal,
+  AlertTriangle,
+  GitCommit,
+  DollarSign,
+  Wrench,
+  FileText,
+  Zap,
+} from "lucide-react";
+import { useToast } from "./ToastProvider";
 
-const eventIcon: Record<AgentEvent['event_type'], typeof Terminal> = {
+const eventIcon: Record<AgentEvent["event_type"], typeof Terminal> = {
   tool_call: Wrench,
   tool_result: FileText,
   text_output: Terminal,
@@ -30,13 +36,20 @@ export default function AgentDetail() {
 
   useEffect(() => {
     if (!id) return;
-    getAgent(id).then(setAgent).catch(() => addToast('error', 'Failed to load agent'));
-    getAgentEvents(id).then(setEvents).catch(() => addToast('error', 'Failed to load events'));
+    getAgent(id)
+      .then(setAgent)
+      .catch(() => addToast("error", "Failed to load agent"));
+    getAgentEvents(id)
+      .then(setEvents)
+      .catch(() => addToast("error", "Failed to load events"));
   }, [id]);
 
-  const allEvents = [...events, ...liveEvents.filter(
-    (le) => le.agent_run_id === id && !events.find((e) => e.id === le.id),
-  )];
+  const allEvents = [
+    ...events,
+    ...liveEvents.filter(
+      (le) => le.agent_run_id === id && !events.find((e) => e.id === le.id),
+    ),
+  ];
 
   useEffect(() => {
     outputRef.current?.scrollTo(0, outputRef.current.scrollHeight);
@@ -46,7 +59,7 @@ export default function AgentDetail() {
     return <p className="text-gray-400 p-8">Loading agent...</p>;
   }
 
-  const textEvents = allEvents.filter((e) => e.event_type === 'text_output');
+  const textEvents = allEvents.filter((e) => e.event_type === "text_output");
 
   return (
     <div className="space-y-6">
@@ -69,21 +82,29 @@ export default function AgentDetail() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <span className="text-xs text-gray-400">Input Tokens</span>
-          <p className="text-lg font-mono text-gray-100">{agent.input_tokens.toLocaleString()}</p>
+          <p className="text-lg font-mono text-gray-100">
+            {agent.input_tokens.toLocaleString()}
+          </p>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <span className="text-xs text-gray-400">Output Tokens</span>
-          <p className="text-lg font-mono text-gray-100">{agent.output_tokens.toLocaleString()}</p>
+          <p className="text-lg font-mono text-gray-100">
+            {agent.output_tokens.toLocaleString()}
+          </p>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <span className="text-xs text-gray-400">Total Cost</span>
-          <p className="text-lg font-mono text-green-400">${agent.cost_usd.toFixed(4)}</p>
+          <p className="text-lg font-mono text-green-400">
+            ${agent.cost_usd.toFixed(4)}
+          </p>
         </div>
       </div>
 
       {/* Event timeline */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-3">Event Timeline</h2>
+        <h2 className="text-lg font-semibold text-gray-100 mb-3">
+          Event Timeline
+        </h2>
         <div className="space-y-1 max-h-96 overflow-y-auto bg-gray-800 rounded-lg border border-gray-700 p-4">
           {allEvents.length === 0 && (
             <p className="text-gray-500 text-sm">No events yet</p>
@@ -105,7 +126,9 @@ export default function AgentDetail() {
 
       {/* Live output */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-3">Live Output</h2>
+        <h2 className="text-lg font-semibold text-gray-100 mb-3">
+          Live Output
+        </h2>
         <div
           ref={outputRef}
           className="bg-gray-950 rounded-lg border border-gray-700 p-4 font-mono text-xs text-green-400 max-h-80 overflow-y-auto whitespace-pre-wrap"

@@ -169,7 +169,11 @@ pub async fn merge_branch_to_main(repo_path: &Path, branch: &str) -> Result<()> 
         anyhow::bail!("Merge conflict for branch {}: {}", branch, stderr.trim());
     }
 
-    tracing::info!("Successfully merged branch {} into {}", branch, default_branch);
+    tracing::info!(
+        "Successfully merged branch {} into {}",
+        branch,
+        default_branch
+    );
     Ok(())
 }
 
@@ -193,6 +197,7 @@ pub async fn delete_branch(repo_path: &Path, branch: &str) -> Result<()> {
 }
 
 /// List all conductor worktrees for a repo
+#[allow(dead_code)]
 pub async fn list_worktrees(repo_path: &Path) -> Result<Vec<WorktreeInfo>> {
     let output = Command::new("git")
         .args(["worktree", "list", "--porcelain"])
@@ -239,6 +244,7 @@ pub async fn list_worktrees(repo_path: &Path) -> Result<Vec<WorktreeInfo>> {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct WorktreeInfo {
     pub path: PathBuf,
     pub branch: String,
@@ -276,7 +282,7 @@ pub async fn cleanup_stale(
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         );
         report.runs_marked_failed += 1;
@@ -364,10 +370,7 @@ pub async fn cleanup_stale(
                 if !path.is_dir() {
                     continue;
                 }
-                let dir_name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let dir_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
                 // Check if any active run owns this worktree
                 let is_active = active_run_ids.iter().any(|id| dir_name.contains(id));
@@ -470,7 +473,13 @@ mod tests {
 pub fn branch_name(agent_id: &str, task_title: &str) -> String {
     let sanitized: String = task_title
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .to_lowercase();
 

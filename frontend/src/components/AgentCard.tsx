@@ -1,18 +1,18 @@
-import { useNavigate } from 'react-router-dom';
-import { Zap, Skull, Loader2 } from 'lucide-react';
-import type { AgentRun } from '../types';
-import { killAgent } from '../api/client';
-import { useState } from 'react';
-import NudgeDialog from './NudgeDialog';
-import { useToast } from './ToastProvider';
+import { useNavigate } from "react-router-dom";
+import { Zap, Skull, Loader2 } from "lucide-react";
+import type { AgentRun } from "../types";
+import { killAgent } from "../api/client";
+import { useState } from "react";
+import NudgeDialog from "./NudgeDialog";
+import { useToast } from "./ToastProvider";
 
-const statusColor: Record<AgentRun['status'], string> = {
-  spawning: 'bg-blue-500',
-  running: 'bg-green-500 animate-pulse',
-  stalled: 'bg-yellow-500',
-  done: 'bg-gray-500',
-  failed: 'bg-red-500',
-  killed: 'bg-red-700',
+const statusColor: Record<AgentRun["status"], string> = {
+  spawning: "bg-blue-500",
+  running: "bg-green-500 animate-pulse",
+  stalled: "bg-yellow-500",
+  done: "bg-gray-500",
+  failed: "bg-red-500",
+  killed: "bg-red-700",
 };
 
 function elapsed(started: string, finished: string | null): string {
@@ -33,7 +33,12 @@ interface Props {
   onRefresh?: () => void;
 }
 
-export default function AgentCard({ agent, taskTitle, lastActivity, onRefresh }: Props) {
+export default function AgentCard({
+  agent,
+  taskTitle,
+  lastActivity,
+  onRefresh,
+}: Props) {
   const navigate = useNavigate();
   const [showNudge, setShowNudge] = useState(false);
   const [killing, setKilling] = useState(false);
@@ -46,7 +51,7 @@ export default function AgentCard({ agent, taskTitle, lastActivity, onRefresh }:
       await killAgent(agent.id);
       onRefresh?.();
     } catch {
-      addToast('error', 'Failed to kill agent');
+      addToast("error", "Failed to kill agent");
     } finally {
       setKilling(false);
     }
@@ -60,7 +65,9 @@ export default function AgentCard({ agent, taskTitle, lastActivity, onRefresh }:
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${statusColor[agent.status]}`} />
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${statusColor[agent.status]}`}
+            />
             <span className="text-sm font-medium text-gray-100 truncate">
               {agent.branch ?? agent.id.slice(0, 8)}
             </span>
@@ -83,7 +90,10 @@ export default function AgentCard({ agent, taskTitle, lastActivity, onRefresh }:
 
         <div className="flex gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); setShowNudge(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowNudge(true);
+            }}
             className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-yellow-400 transition-colors"
           >
             <Zap size={12} /> Nudge
@@ -93,7 +103,12 @@ export default function AgentCard({ agent, taskTitle, lastActivity, onRefresh }:
             disabled={killing}
             className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-red-900 rounded text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {killing ? <Loader2 size={12} className="animate-spin" /> : <Skull size={12} />} Kill
+            {killing ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Skull size={12} />
+            )}{" "}
+            Kill
           </button>
         </div>
       </div>

@@ -98,14 +98,21 @@ Output ONLY the JSON object. No other text."#,
     // via a "StructuredOutput" tool use, not in the result event's "result" field.
     let mut structured_output: Option<serde_json::Value> = None;
 
-    while let Some(line) = reader.next_line().await.context("Failed to read stdout line")? {
+    while let Some(line) = reader
+        .next_line()
+        .await
+        .context("Failed to read stdout line")?
+    {
         if line.trim().is_empty() {
             continue;
         }
 
         if let Some(parsed) = parse_stream_json_line(&line) {
             let message = match &parsed {
-                ParsedEvent::ToolUse { tool_name, input_summary } => {
+                ParsedEvent::ToolUse {
+                    tool_name,
+                    input_summary,
+                } => {
                     if tool_name == "StructuredOutput" {
                         // Extract the raw input from the StructuredOutput tool use
                         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
@@ -165,7 +172,10 @@ Output ONLY the JSON object. No other text."#,
         }
     }
 
-    let status = child.wait().await.context("Failed to wait on claude process")?;
+    let status = child
+        .wait()
+        .await
+        .context("Failed to wait on claude process")?;
     if !status.success() {
         let stderr_output = if let Some(mut stderr) = child.stderr.take() {
             let mut buf = String::new();
@@ -176,14 +186,18 @@ Output ONLY the JSON object. No other text."#,
         } else {
             String::new()
         };
-        anyhow::bail!("Claude decomposition failed (exit {}): {}", status, stderr_output);
+        anyhow::bail!(
+            "Claude decomposition failed (exit {}): {}",
+            status,
+            stderr_output
+        );
     }
 
     // Prefer structured output from StructuredOutput tool use, fall back to result line
     if let Some(output) = structured_output {
         tracing::debug!("Decomposition structured output: {}", output);
-        let output_str = serde_json::to_string(&output)
-            .context("Failed to serialize structured output")?;
+        let output_str =
+            serde_json::to_string(&output).context("Failed to serialize structured output")?;
         parse_decomposition_output(&output_str)
     } else {
         let raw_result = result_line.context("No result event received from Claude stream")?;
@@ -401,7 +415,8 @@ mod tests {
 
     #[test]
     fn test_parse_wrapped_result_object() {
-        let output = r#"{"result":{"tasks":[{"title":"Task B","description":"Do B","depends_on":[]}]}}"#;
+        let output =
+            r#"{"result":{"tasks":[{"title":"Task B","description":"Do B","depends_on":[]}]}}"#;
         let tasks = parse_decomposition_output(output).unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0].title, "Task B");

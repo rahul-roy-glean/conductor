@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import type { AgentEvent, AgentRun, OperationUpdate } from '../types';
+import { useEffect, useRef, useState, useCallback } from "react";
+import type { AgentEvent, AgentRun, OperationUpdate } from "../types";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 interface UseAgentEventsOptions {
   agentId?: string;
@@ -25,7 +25,9 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
     connected: false,
   });
   const esRef = useRef<EventSource | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const connect = useCallback(() => {
     const url = agentId
@@ -39,7 +41,7 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
       setState((s) => ({ ...s, connected: true }));
     };
 
-    es.addEventListener('agent_update', (e) => {
+    es.addEventListener("agent_update", (e) => {
       try {
         const agent: AgentRun = JSON.parse(e.data);
         setState((s) => {
@@ -47,34 +49,38 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
           agents.set(agent.id, agent);
           return { ...s, agents };
         });
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     });
 
-    es.addEventListener('agent_event', (e) => {
+    es.addEventListener("agent_event", (e) => {
       try {
         const event: AgentEvent = JSON.parse(e.data);
         setState((s) => ({
           ...s,
           events: [...s.events, event],
         }));
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     });
 
-    es.addEventListener('operation_update', (e: MessageEvent) => {
+    es.addEventListener("operation_update", (e: MessageEvent) => {
       try {
         const op: OperationUpdate = JSON.parse(e.data);
         setState((s) => {
           const operations = new Map(s.operations);
           operations.set(op.operation_id, op);
           const operationLogs = new Map(s.operationLogs);
-          if (op.status === 'running' && op.message) {
+          if (op.status === "running" && op.message) {
             const existing = operationLogs.get(op.operation_id) ?? [];
             operationLogs.set(op.operation_id, [...existing, op.message]);
           }
           return { ...s, operations, operationLogs };
         });
         // Auto-clean completed/failed operations after 30s
-        if (op.status === 'completed' || op.status === 'failed') {
+        if (op.status === "completed" || op.status === "failed") {
           setTimeout(() => {
             setState((s) => {
               const operations = new Map(s.operations);
@@ -85,32 +91,37 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
             });
           }, 30000);
         }
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     });
 
-    es.addEventListener('message', (e) => {
+    es.addEventListener("message", (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === 'agent_update') {
+        if (data.type === "agent_update") {
           const agent: AgentRun = data.payload;
           setState((s) => {
             const agents = new Map(s.agents);
             agents.set(agent.id, agent);
             return { ...s, agents };
           });
-        } else if (data.type === 'agent_event') {
+        } else if (data.type === "agent_event") {
           const event: AgentEvent = data.payload;
           setState((s) => ({
             ...s,
             events: [...s.events, event],
           }));
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     });
 
     es.onerror = () => {
       setState((s) => ({ ...s, connected: false }));
       es.close();
+      // eslint-disable-next-line react-hooks/immutability
       reconnectTimer.current = setTimeout(connect, 3000);
     };
   }, [agentId]);

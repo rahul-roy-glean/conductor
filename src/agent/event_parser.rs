@@ -6,6 +6,7 @@ use crate::db::Database;
 
 /// Parsed event from Claude Code's stream-json output
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ParsedEvent {
     /// Agent is making a tool call
     ToolUse {
@@ -19,13 +20,9 @@ pub enum ParsedEvent {
         summary: String,
     },
     /// Text being streamed from the agent
-    TextDelta {
-        text: String,
-    },
+    TextDelta { text: String },
     /// Full text message completed
-    TextMessage {
-        text: String,
-    },
+    TextMessage { text: String },
     /// API request with cost info
     ApiRequest {
         model: String,
@@ -35,9 +32,7 @@ pub enum ParsedEvent {
         duration_ms: i64,
     },
     /// Error occurred
-    Error {
-        message: String,
-    },
+    Error { message: String },
     /// Session completed with result
     Result {
         session_id: String,
@@ -47,9 +42,7 @@ pub enum ParsedEvent {
         output_tokens: i64,
     },
     /// System message from Claude Code
-    System {
-        message: String,
-    },
+    System { message: String },
 }
 
 /// Parse a single NDJSON line from Claude Code's stream-json output
@@ -157,10 +150,7 @@ pub fn parse_stream_json_line(line: &str) -> Option<ParsedEvent> {
                 .and_then(|n| n.as_str())
                 .unwrap_or("unknown")
                 .to_string();
-            let is_error = v
-                .get("is_error")
-                .and_then(|e| e.as_bool())
-                .unwrap_or(false);
+            let is_error = v.get("is_error").and_then(|e| e.as_bool()).unwrap_or(false);
             let output = v
                 .get("output")
                 .or_else(|| v.get("content"))
@@ -345,7 +335,10 @@ mod tests {
         let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"src/lib.rs"}}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolUse { tool_name, input_summary } => {
+            ParsedEvent::ToolUse {
+                tool_name,
+                input_summary,
+            } => {
                 assert_eq!(tool_name, "Edit");
                 assert_eq!(input_summary, "Editing src/lib.rs");
             }
@@ -358,7 +351,10 @@ mod tests {
         let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"new_file.rs"}}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolUse { tool_name, input_summary } => {
+            ParsedEvent::ToolUse {
+                tool_name,
+                input_summary,
+            } => {
                 assert_eq!(tool_name, "Write");
                 assert_eq!(input_summary, "Writing new_file.rs");
             }
@@ -371,7 +367,10 @@ mod tests {
         let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Grep","input":{"pattern":"fn main"}}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolUse { tool_name, input_summary } => {
+            ParsedEvent::ToolUse {
+                tool_name,
+                input_summary,
+            } => {
                 assert_eq!(tool_name, "Grep");
                 assert_eq!(input_summary, "Searching for 'fn main'");
             }
@@ -384,7 +383,10 @@ mod tests {
         let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Glob","input":{"pattern":"**/*.rs"}}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolUse { tool_name, input_summary } => {
+            ParsedEvent::ToolUse {
+                tool_name,
+                input_summary,
+            } => {
                 assert_eq!(tool_name, "Glob");
                 assert_eq!(input_summary, "Finding files matching '**/*.rs'");
             }
@@ -397,7 +399,10 @@ mod tests {
         let line = r#"{"type":"assistant","message":{"content":[{"type":"tool_use","name":"CustomTool","input":{}}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolUse { tool_name, input_summary } => {
+            ParsedEvent::ToolUse {
+                tool_name,
+                input_summary,
+            } => {
                 assert_eq!(tool_name, "CustomTool");
                 assert_eq!(input_summary, "Using CustomTool");
             }
@@ -407,7 +412,8 @@ mod tests {
 
     #[test]
     fn test_parse_text_message() {
-        let line = r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}"#;
+        let line =
+            r#"{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
             ParsedEvent::TextMessage { text } => {
@@ -481,7 +487,8 @@ mod tests {
 
     #[test]
     fn test_parse_tool_result_success() {
-        let line = r#"{"type":"tool_result","tool_name":"Bash","is_error":false,"output":"test passed"}"#;
+        let line =
+            r#"{"type":"tool_result","tool_name":"Bash","is_error":false,"output":"test passed"}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
             ParsedEvent::ToolResult {
@@ -537,7 +544,11 @@ mod tests {
         let line = r#"{"type":"tool_output","name":"Read","content":"file contents"}"#;
         let event = parse_stream_json_line(line).unwrap();
         match event {
-            ParsedEvent::ToolResult { tool_name, success, summary } => {
+            ParsedEvent::ToolResult {
+                tool_name,
+                success,
+                summary,
+            } => {
                 assert_eq!(tool_name, "Read");
                 assert!(success);
                 assert_eq!(summary, "file contents");
@@ -701,10 +712,7 @@ fn summarize_tool_input(tool_name: &str, input: &Value) -> String {
             format!("Writing {}", path)
         }
         "Bash" => {
-            let cmd = input
-                .get("command")
-                .and_then(|c| c.as_str())
-                .unwrap_or("?");
+            let cmd = input.get("command").and_then(|c| c.as_str()).unwrap_or("?");
             let truncated = if cmd.len() > 80 {
                 format!("{}...", &cmd[..80])
             } else {
@@ -713,17 +721,11 @@ fn summarize_tool_input(tool_name: &str, input: &Value) -> String {
             format!("Running: {}", truncated)
         }
         "Grep" => {
-            let pattern = input
-                .get("pattern")
-                .and_then(|p| p.as_str())
-                .unwrap_or("?");
+            let pattern = input.get("pattern").and_then(|p| p.as_str()).unwrap_or("?");
             format!("Searching for '{}'", pattern)
         }
         "Glob" => {
-            let pattern = input
-                .get("pattern")
-                .and_then(|p| p.as_str())
-                .unwrap_or("?");
+            let pattern = input.get("pattern").and_then(|p| p.as_str()).unwrap_or("?");
             format!("Finding files matching '{}'", pattern)
         }
         _ => format!("Using {}", tool_name),

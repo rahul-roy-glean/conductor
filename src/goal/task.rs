@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 
 /// Valid task status transitions
+#[allow(dead_code)]
 const VALID_TRANSITIONS: &[(&str, &str)] = &[
     ("pending", "assigned"),
     ("pending", "blocked"),
@@ -13,11 +14,12 @@ const VALID_TRANSITIONS: &[(&str, &str)] = &[
     ("stalled", "running"), // resumed
     ("stalled", "failed"),
     ("stalled", "killed"),
-    ("failed", "pending"), // retry
+    ("failed", "pending"),  // retry
     ("blocked", "pending"), // unblocked
 ];
 
 /// Check if a status transition is valid
+#[allow(dead_code)]
 pub fn validate_transition(from: &str, to: &str) -> Result<()> {
     if from == to {
         return Ok(());
@@ -29,14 +31,11 @@ pub fn validate_transition(from: &str, to: &str) -> Result<()> {
         }
     }
 
-    bail!(
-        "Invalid task status transition: {} -> {}",
-        from,
-        to
-    );
+    bail!("Invalid task status transition: {} -> {}", from, to);
 }
 
 /// Check for dependency cycles in a task graph
+#[allow(dead_code)]
 pub fn has_cycle(
     task_id: &str,
     depends_on: &[String],
@@ -180,10 +179,7 @@ mod tests {
 
     #[test]
     fn test_no_dependencies_no_cycle() {
-        let tasks = vec![
-            ("a".to_string(), vec![]),
-            ("b".to_string(), vec![]),
-        ];
+        let tasks = vec![("a".to_string(), vec![]), ("b".to_string(), vec![])];
         assert!(!has_cycle("a", &[], &tasks));
     }
 
@@ -196,11 +192,7 @@ mod tests {
             ("c".to_string(), vec!["d".to_string()]),
             ("d".to_string(), vec![]),
         ];
-        assert!(!has_cycle(
-            "a",
-            &["b".to_string(), "c".to_string()],
-            &tasks
-        ));
+        assert!(!has_cycle("a", &["b".to_string(), "c".to_string()], &tasks));
     }
 
     #[test]

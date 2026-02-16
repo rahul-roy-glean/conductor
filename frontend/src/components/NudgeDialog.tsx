@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { nudgeAgent } from '../api/client';
+import { useState } from "react";
+import { nudgeAgent } from "../api/client";
 
 interface Props {
   agentId: string;
@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function NudgeDialog({ agentId, onClose }: Props) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
@@ -22,7 +22,10 @@ export default function NudgeDialog({ agentId, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onClose}
+    >
       <div
         className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
@@ -46,7 +49,7 @@ export default function NudgeDialog({ agentId, onClose }: Props) {
             disabled={sending || !message.trim()}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded text-white transition-colors"
           >
-            {sending ? 'Sending...' : 'Send'}
+            {sending ? "Sending..." : "Send"}
           </button>
         </div>
       </div>

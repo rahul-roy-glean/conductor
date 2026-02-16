@@ -17,20 +17,15 @@ pub fn check_goal_completion(db: &Database, goal_space_id: &str) -> Result<bool>
 }
 
 /// Get summary stats for a goal space
-pub fn goal_summary(
-    db: &Database,
-    goal_space_id: &str,
-) -> Result<GoalSummary> {
+#[allow(dead_code)]
+pub fn goal_summary(db: &Database, goal_space_id: &str) -> Result<GoalSummary> {
     let tasks = db.list_tasks(goal_space_id)?;
     let total = tasks.len();
     let done = tasks.iter().filter(|t| t.status == "done").count();
     let running = tasks.iter().filter(|t| t.status == "running").count();
     let failed = tasks.iter().filter(|t| t.status == "failed").count();
     let pending = tasks.iter().filter(|t| t.status == "pending").count();
-    let blocked = tasks
-        .iter()
-        .filter(|t| t.status == "blocked")
-        .count();
+    let blocked = tasks.iter().filter(|t| t.status == "blocked").count();
 
     Ok(GoalSummary {
         total,
@@ -43,6 +38,7 @@ pub fn goal_summary(
 }
 
 #[derive(Debug, serde::Serialize)]
+#[allow(dead_code)]
 pub struct GoalSummary {
     pub total: usize,
     pub done: usize,
@@ -121,8 +117,30 @@ mod tests {
             .unwrap();
 
         // Mark both done
-        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
-        db.update_task(&t2.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
+        db.update_task(
+            &t1.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        db.update_task(
+            &t2.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         let completed = check_goal_completion(&db, &goal.id).unwrap();
         assert!(completed);
@@ -168,7 +186,18 @@ mod tests {
         .unwrap();
 
         // Only mark t1 done
-        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
+        db.update_task(
+            &t1.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         let completed = check_goal_completion(&db, &goal.id).unwrap();
         assert!(!completed);
@@ -189,12 +218,66 @@ mod tests {
             })
             .unwrap();
 
-        let t1 = db.create_task(&goal.id, &CreateTask { title: "T1".into(), description: "D".into(), priority: 0, depends_on: vec![], settings: Default::default() }).unwrap();
-        let t2 = db.create_task(&goal.id, &CreateTask { title: "T2".into(), description: "D".into(), priority: 0, depends_on: vec![], settings: Default::default() }).unwrap();
-        db.create_task(&goal.id, &CreateTask { title: "T3".into(), description: "D".into(), priority: 0, depends_on: vec![], settings: Default::default() }).unwrap();
+        let t1 = db
+            .create_task(
+                &goal.id,
+                &CreateTask {
+                    title: "T1".into(),
+                    description: "D".into(),
+                    priority: 0,
+                    depends_on: vec![],
+                    settings: Default::default(),
+                },
+            )
+            .unwrap();
+        let t2 = db
+            .create_task(
+                &goal.id,
+                &CreateTask {
+                    title: "T2".into(),
+                    description: "D".into(),
+                    priority: 0,
+                    depends_on: vec![],
+                    settings: Default::default(),
+                },
+            )
+            .unwrap();
+        db.create_task(
+            &goal.id,
+            &CreateTask {
+                title: "T3".into(),
+                description: "D".into(),
+                priority: 0,
+                depends_on: vec![],
+                settings: Default::default(),
+            },
+        )
+        .unwrap();
 
-        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
-        db.update_task(&t2.id, &UpdateTask { status: Some("running".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
+        db.update_task(
+            &t1.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        db.update_task(
+            &t2.id,
+            &UpdateTask {
+                status: Some("running".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         let summary = goal_summary(&db, &goal.id).unwrap();
         assert_eq!(summary.total, 3);
@@ -233,7 +316,18 @@ mod tests {
             .unwrap();
 
         // Mark t1 as done
-        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
+        db.update_task(
+            &t1.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         // Simulate the race: add a new pending task just before checking completion
         db.create_task(
@@ -283,7 +377,18 @@ mod tests {
             .unwrap();
 
         // Mark task as done
-        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None, ..Default::default() }).unwrap();
+        db.update_task(
+            &t1.id,
+            &UpdateTask {
+                status: Some("done".into()),
+                title: None,
+                description: None,
+                priority: None,
+                depends_on: None,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         // First completion should succeed
         let completed = check_goal_completion(&db, &goal.id).unwrap();

@@ -1,6 +1,13 @@
-import { createContext, useCallback, useContext, useState, useRef, useEffect } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 
-type ToastType = 'success' | 'error' | 'info';
+type ToastType = "success" | "error" | "info";
 
 interface Toast {
   id: number;
@@ -16,18 +23,25 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const accentColors: Record<ToastType, string> = {
-  success: 'border-l-green-500',
-  error: 'border-l-red-500',
-  info: 'border-l-blue-500',
+  success: "border-l-green-500",
+  error: "border-l-red-500",
+  info: "border-l-blue-500",
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within ToastProvider');
+  if (!ctx) throw new Error("useToast must be used within ToastProvider");
   return ctx;
 }
 
-function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: number) => void }) {
+function ToastItem({
+  toast,
+  onRemove,
+}: {
+  toast: Toast;
+  onRemove: (id: number) => void;
+}) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -37,7 +51,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: number) =
 
   useEffect(() => {
     if (!toast.visible) {
-      setShow(false);
+      setShow(false); // eslint-disable-line react-hooks/set-state-in-effect
       const timer = setTimeout(() => onRemove(toast.id), 300);
       return () => clearTimeout(timer);
     }
@@ -46,7 +60,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: number) =
   return (
     <div
       className={`bg-gray-800 border border-gray-700 border-l-4 ${accentColors[toast.type]} rounded px-4 py-3 text-sm text-gray-100 shadow-lg transition-all duration-300 ${
-        show ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-8'
+        show ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
       }`}
     >
       {toast.message}

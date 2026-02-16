@@ -13,6 +13,7 @@ use crate::server::AppState;
 #[derive(Debug, serde::Deserialize)]
 pub struct StopHookPayload {
     pub session_id: Option<String>,
+    #[allow(dead_code)]
     pub stop_hook_active: Option<bool>,
 }
 
@@ -43,7 +44,11 @@ pub async fn handle_stop_hook(
         {
             // Mark agent as done
             if let Err(e) = state.db.update_agent_run_status(&agent.id, "done") {
-                tracing::error!("Failed to update agent run status to done for {}: {}", agent.id, e);
+                tracing::error!(
+                    "Failed to update agent run status to done for {}: {}",
+                    agent.id,
+                    e
+                );
             }
 
             // Mark task as done
@@ -55,10 +60,14 @@ pub async fn handle_stop_hook(
                     description: None,
                     priority: None,
                     depends_on: None,
-                ..Default::default()
+                    ..Default::default()
                 },
             ) {
-                tracing::error!("Failed to update task {} to done via stop hook: {}", agent.task_id, e);
+                tracing::error!(
+                    "Failed to update task {} to done via stop hook: {}",
+                    agent.task_id,
+                    e
+                );
             }
 
             if let Err(e) = state.db.insert_goal_history(
@@ -67,12 +76,20 @@ pub async fn handle_stop_hook(
                 &format!("Task {} completed by agent {}", agent.task_id, agent.id),
                 None,
             ) {
-                tracing::error!("Failed to insert goal history for goal {}: {}", agent.goal_space_id, e);
+                tracing::error!(
+                    "Failed to insert goal history for goal {}: {}",
+                    agent.goal_space_id,
+                    e
+                );
             }
 
             // Check if the goal is now complete
             if let Err(e) = space::check_goal_completion(&state.db, &agent.goal_space_id) {
-                tracing::error!("Failed to check goal completion for goal {}: {}", agent.goal_space_id, e);
+                tracing::error!(
+                    "Failed to check goal completion for goal {}: {}",
+                    agent.goal_space_id,
+                    e
+                );
             }
 
             // Auto-dispatch newly unblocked tasks

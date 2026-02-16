@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
-import { getStats, listGoals, listAgents } from '../api/client';
-import type { Stats, GoalSpace, AgentRun } from '../types';
-import { DollarSign } from 'lucide-react';
-import { useToast } from './ToastProvider';
+import { useEffect, useState } from "react";
+import { getStats, listGoals, listAgents } from "../api/client";
+import type { Stats, GoalSpace, AgentRun } from "../types";
+import { DollarSign } from "lucide-react";
+import { useToast } from "./ToastProvider";
 
 interface GoalCost {
   goal: GoalSpace;
@@ -16,19 +16,25 @@ export default function CostDashboard() {
   const { addToast } = useToast();
 
   useEffect(() => {
-    getStats().then(setStats).catch(() => addToast('error', 'Failed to load stats'));
-    listAgents().then(setAgents).catch(() => addToast('error', 'Failed to load agents'));
-    listGoals().then(async (goals) => {
-      // Compute per-goal costs from agents
-      const allAgents = await listAgents().catch(() => [] as AgentRun[]);
-      const costs = goals.map((goal) => ({
-        goal,
-        cost: allAgents
-          .filter((a) => a.goal_space_id === goal.id)
-          .reduce((sum, a) => sum + a.cost_usd, 0),
-      }));
-      setGoalCosts(costs.sort((a, b) => b.cost - a.cost));
-    }).catch(() => addToast('error', 'Failed to load goal costs'));
+    getStats()
+      .then(setStats)
+      .catch(() => addToast("error", "Failed to load stats"));
+    listAgents()
+      .then(setAgents)
+      .catch(() => addToast("error", "Failed to load agents"));
+    listGoals()
+      .then(async (goals) => {
+        // Compute per-goal costs from agents
+        const allAgents = await listAgents().catch(() => [] as AgentRun[]);
+        const costs = goals.map((goal) => ({
+          goal,
+          cost: allAgents
+            .filter((a) => a.goal_space_id === goal.id)
+            .reduce((sum, a) => sum + a.cost_usd, 0),
+        }));
+        setGoalCosts(costs.sort((a, b) => b.cost - a.cost));
+      })
+      .catch(() => addToast("error", "Failed to load goal costs"));
   }, []);
 
   const maxGoalCost = Math.max(...goalCosts.map((g) => g.cost), 0.01);
@@ -37,7 +43,9 @@ export default function CostDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-100 mb-6">Cost Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">
+          Cost Dashboard
+        </h1>
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 inline-block">
           <div className="flex items-center gap-3 text-gray-400 mb-2">
             <DollarSign size={20} />
@@ -51,13 +59,17 @@ export default function CostDashboard() {
 
       {/* Per-goal breakdown */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Cost by Goal</h2>
+        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+          Cost by Goal
+        </h2>
         <div className="space-y-3">
           {goalCosts.map(({ goal, cost }) => (
             <div key={goal.id} className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300 truncate">{goal.name}</span>
-                <span className="text-gray-400 font-mono">${cost.toFixed(2)}</span>
+                <span className="text-gray-400 font-mono">
+                  ${cost.toFixed(2)}
+                </span>
               </div>
               <div className="h-3 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
                 <div
@@ -75,7 +87,9 @@ export default function CostDashboard() {
 
       {/* Per-agent cost */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Cost by Agent</h2>
+        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+          Cost by Agent
+        </h2>
         <div className="space-y-3">
           {agents
             .sort((a, b) => b.cost_usd - a.cost_usd)
@@ -85,12 +99,16 @@ export default function CostDashboard() {
                   <span className="text-gray-300 font-mono truncate">
                     {agent.branch ?? agent.id.slice(0, 8)}
                   </span>
-                  <span className="text-gray-400 font-mono">${agent.cost_usd.toFixed(4)}</span>
+                  <span className="text-gray-400 font-mono">
+                    ${agent.cost_usd.toFixed(4)}
+                  </span>
                 </div>
                 <div className="h-3 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
                   <div
                     className="h-full bg-green-600 rounded-full transition-all"
-                    style={{ width: `${(agent.cost_usd / maxAgentCost) * 100}%` }}
+                    style={{
+                      width: `${(agent.cost_usd / maxAgentCost) * 100}%`,
+                    }}
                   />
                 </div>
               </div>

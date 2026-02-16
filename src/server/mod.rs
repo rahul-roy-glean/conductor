@@ -102,7 +102,7 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
             continue;
         }
 
-        let unblocked = match state.db.get_unblocked_tasks(&goal_space_id) {
+        let unblocked = match state.db.get_unblocked_tasks(goal_space_id) {
             Ok(tasks) => tasks,
             Err(e) => {
                 tracing::error!("Failed to get unblocked tasks: {}", e);
@@ -112,7 +112,7 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
 
         if unblocked.is_empty() {
             // No new tasks to dispatch — check if goal is fully complete
-            let _ = crate::goal::space::check_goal_completion(&state.db, &goal_space_id);
+            let _ = crate::goal::space::check_goal_completion(&state.db, goal_space_id);
             continue;
         }
 
@@ -133,7 +133,7 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
                 .agent_manager
                 .spawn_agent(
                     &task.id,
-                    &goal_space_id,
+                    goal_space_id,
                     &prompt,
                     &goal.repo_path,
                     &effective.model(),
@@ -147,7 +147,11 @@ async fn dispatch_loop(state: Arc<AppState>, mut rx: mpsc::UnboundedReceiver<Dis
             {
                 Ok(_) => spawned += 1,
                 Err(e) => {
-                    tracing::error!("Auto-dispatch: failed to spawn agent for task {}: {}", task.id, e);
+                    tracing::error!(
+                        "Auto-dispatch: failed to spawn agent for task {}: {}",
+                        task.id,
+                        e
+                    );
                 }
             }
         }

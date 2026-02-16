@@ -194,9 +194,7 @@ async fn test_update_goal() {
                 .method("PUT")
                 .uri(&format!("/api/goals/{}", goal.id))
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({"name": "Updated Name"}).to_string(),
-                ))
+                .body(Body::from(json!({"name": "Updated Name"}).to_string()))
                 .unwrap(),
         )
         .await
@@ -276,7 +274,10 @@ async fn test_create_goal_with_settings() {
     assert_eq!(body["settings"]["model"], "opus");
     assert_eq!(body["settings"]["max_budget_usd"], 10.0);
     assert_eq!(body["settings"]["max_turns"], 100);
-    assert_eq!(body["settings"]["allowed_tools"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        body["settings"]["allowed_tools"].as_array().unwrap().len(),
+        3
+    );
 }
 
 #[tokio::test]
@@ -564,9 +565,7 @@ async fn test_update_task() {
                 .method("PUT")
                 .uri(&format!("/api/tasks/{}", task.id))
                 .header("content-type", "application/json")
-                .body(Body::from(
-                    json!({"status": "running"}).to_string(),
-                ))
+                .body(Body::from(json!({"status": "running"}).to_string()))
                 .unwrap(),
         )
         .await
@@ -615,7 +614,7 @@ async fn test_retry_task() {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )
         .unwrap();
@@ -758,7 +757,14 @@ async fn test_get_agent_events() {
 
     state
         .db
-        .insert_agent_event(&run.id, "tool_call", Some("Read"), "Reading file", None, None)
+        .insert_agent_event(
+            &run.id,
+            "tool_call",
+            Some("Read"),
+            "Reading file",
+            None,
+            None,
+        )
         .unwrap();
     state
         .db

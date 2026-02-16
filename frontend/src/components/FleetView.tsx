@@ -1,28 +1,38 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { listAgents, listGoals, getStats, killAgent } from '../api/client';
-import type { AgentRun, GoalSpace, Stats } from '../types';
-import { useAgentEvents } from '../hooks/useAgentEvents';
-import { Activity, DollarSign, CheckCircle, Zap, Skull, Loader2, FolderGit2, ChevronDown, ChevronRight } from 'lucide-react';
-import { useToast } from './ToastProvider';
-import NudgeDialog from './NudgeDialog';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { listAgents, listGoals, getStats, killAgent } from "../api/client";
+import type { AgentRun, GoalSpace, Stats } from "../types";
+import { useAgentEvents } from "../hooks/useAgentEvents";
+import {
+  Activity,
+  DollarSign,
+  CheckCircle,
+  Zap,
+  Skull,
+  Loader2,
+  FolderGit2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { useToast } from "./ToastProvider";
+import NudgeDialog from "./NudgeDialog";
 
-const statusColor: Record<AgentRun['status'], string> = {
-  spawning: 'text-blue-400',
-  running: 'text-green-400',
-  stalled: 'text-yellow-400',
-  done: 'text-gray-400',
-  failed: 'text-red-400',
-  killed: 'text-red-600',
+const statusColor: Record<AgentRun["status"], string> = {
+  spawning: "text-blue-400",
+  running: "text-green-400",
+  stalled: "text-yellow-400",
+  done: "text-gray-400",
+  failed: "text-red-400",
+  killed: "text-red-600",
 };
 
-const statusDot: Record<AgentRun['status'], string> = {
-  spawning: 'bg-blue-500',
-  running: 'bg-green-500 animate-pulse',
-  stalled: 'bg-yellow-500',
-  done: 'bg-gray-500',
-  failed: 'bg-red-500',
-  killed: 'bg-red-700',
+const statusDot: Record<AgentRun["status"], string> = {
+  spawning: "bg-blue-500",
+  running: "bg-green-500 animate-pulse",
+  stalled: "bg-yellow-500",
+  done: "bg-gray-500",
+  failed: "bg-red-500",
+  killed: "bg-red-700",
 };
 
 function elapsed(started: string, finished: string | null): string {
@@ -58,9 +68,15 @@ export default function FleetView() {
   const navigate = useNavigate();
 
   const loadData = () => {
-    listAgents().then(setAgents).catch(() => addToast('error', 'Failed to load agents'));
-    listGoals().then(setGoals).catch(() => addToast('error', 'Failed to load goals'));
-    getStats().then(setStats).catch(() => addToast('error', 'Failed to load stats'));
+    listAgents()
+      .then(setAgents)
+      .catch(() => addToast("error", "Failed to load agents"));
+    listGoals()
+      .then(setGoals)
+      .catch(() => addToast("error", "Failed to load goals"));
+    getStats()
+      .then(setStats)
+      .catch(() => addToast("error", "Failed to load stats"));
   };
 
   useEffect(() => {
@@ -85,15 +101,19 @@ export default function FleetView() {
   const grouped = new Map<string, AgentRun[]>();
   for (const agent of mergedAgents) {
     const goal = goalMap.get(agent.goal_space_id);
-    const repo = goal?.repo_path ?? 'Unknown Repository';
+    const repo = goal?.repo_path ?? "Unknown Repository";
     if (!grouped.has(repo)) grouped.set(repo, []);
     grouped.get(repo)!.push(agent);
   }
 
   // Sort groups: active agents first, then by repo path
   const sortedGroups = [...grouped.entries()].sort(([, a], [, b]) => {
-    const aActive = a.some((ag) => ag.status === 'running' || ag.status === 'spawning');
-    const bActive = b.some((ag) => ag.status === 'running' || ag.status === 'spawning');
+    const aActive = a.some(
+      (ag) => ag.status === "running" || ag.status === "spawning",
+    );
+    const bActive = b.some(
+      (ag) => ag.status === "running" || ag.status === "spawning",
+    );
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
     return 0;
@@ -105,7 +125,7 @@ export default function FleetView() {
       await killAgent(agentId);
       loadData();
     } catch {
-      addToast('error', 'Failed to kill agent');
+      addToast("error", "Failed to kill agent");
     } finally {
       setKillingId(null);
     }
@@ -128,8 +148,12 @@ export default function FleetView() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-100">Fleet</h1>
         <div className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-xs text-gray-400">{connected ? 'Live' : 'Disconnected'}</span>
+          <span
+            className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
+          />
+          <span className="text-xs text-gray-400">
+            {connected ? "Live" : "Disconnected"}
+          </span>
         </div>
       </div>
 
@@ -140,7 +164,9 @@ export default function FleetView() {
             <Activity size={16} />
             <span className="text-xs">Active Agents</span>
           </div>
-          <span className="text-2xl font-bold text-gray-100">{stats?.active_agents ?? 0}</span>
+          <span className="text-2xl font-bold text-gray-100">
+            {stats?.active_agents ?? 0}
+          </span>
         </div>
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center gap-2 text-gray-400 mb-1">
@@ -164,7 +190,9 @@ export default function FleetView() {
 
       {/* Agent list grouped by repo */}
       {sortedGroups.map(([repoPath, repoAgents]) => {
-        const activeCount = repoAgents.filter((a) => a.status === 'running' || a.status === 'spawning').length;
+        const activeCount = repoAgents.filter(
+          (a) => a.status === "running" || a.status === "spawning",
+        ).length;
         const totalCost = repoAgents.reduce((sum, a) => sum + a.cost_usd, 0);
         const isCollapsed = collapsedRepos.has(repoPath);
 
@@ -181,10 +209,16 @@ export default function FleetView() {
                 <ChevronDown size={14} className="text-gray-500 shrink-0" />
               )}
               <FolderGit2 size={14} className="text-gray-500 shrink-0" />
-              <span className="text-sm font-mono text-gray-300 truncate">{repoPath}</span>
+              <span className="text-sm font-mono text-gray-300 truncate">
+                {repoPath}
+              </span>
               <span className="text-xs text-gray-500 shrink-0">
-                {repoAgents.length} agent{repoAgents.length !== 1 ? 's' : ''}
-                {activeCount > 0 && <span className="text-green-400 ml-1">• {activeCount} active</span>}
+                {repoAgents.length} agent{repoAgents.length !== 1 ? "s" : ""}
+                {activeCount > 0 && (
+                  <span className="text-green-400 ml-1">
+                    • {activeCount} active
+                  </span>
+                )}
               </span>
               <span className="text-xs text-gray-500 shrink-0 ml-auto font-mono">
                 ${totalCost.toFixed(2)}
@@ -213,7 +247,9 @@ export default function FleetView() {
                     className="grid grid-cols-[auto_1fr_100px_80px_100px_100px_auto] gap-3 items-center px-4 py-2.5 border-b border-gray-700/50 last:border-b-0 hover:bg-gray-750 cursor-pointer transition-colors group"
                   >
                     {/* Status dot */}
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[agent.status]}`} />
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[agent.status]}`}
+                    />
 
                     {/* Branch name */}
                     <span className="text-sm font-mono text-gray-200 truncate">
@@ -221,7 +257,9 @@ export default function FleetView() {
                     </span>
 
                     {/* Status */}
-                    <span className={`text-xs font-medium ${statusColor[agent.status]}`}>
+                    <span
+                      className={`text-xs font-medium ${statusColor[agent.status]}`}
+                    >
                       {agent.status}
                     </span>
 
@@ -236,26 +274,39 @@ export default function FleetView() {
                     </span>
 
                     {/* Started timestamp */}
-                    <span className="text-xs text-gray-500 text-right" title={new Date(agent.started_at).toLocaleString()}>
+                    <span
+                      className="text-xs text-gray-500 text-right"
+                      title={new Date(agent.started_at).toLocaleString()}
+                    >
                       {timeAgo(agent.started_at)}
                     </span>
 
                     {/* Actions */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setNudgeId(agent.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setNudgeId(agent.id);
+                        }}
                         className="p-1 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
                         title="Nudge"
                       >
                         <Zap size={13} />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleKill(agent.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleKill(agent.id);
+                        }}
                         disabled={killingId === agent.id}
                         className="p-1 text-red-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
                         title="Kill"
                       >
-                        {killingId === agent.id ? <Loader2 size={13} className="animate-spin" /> : <Skull size={13} />}
+                        {killingId === agent.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Skull size={13} />
+                        )}
                       </button>
                     </div>
                   </div>

@@ -3,6 +3,7 @@ pub mod handler;
 use serde_json::json;
 
 /// Generate Claude Code hooks configuration that posts to Conductor
+#[allow(dead_code)]
 pub fn generate_hooks_config(port: u16) -> serde_json::Value {
     let base_url = format!("http://localhost:{}", port);
 
@@ -84,6 +85,7 @@ mod tests {
 }
 
 /// Write hooks configuration to a worktree's .claude/settings.json
+#[allow(dead_code)]
 pub async fn install_hooks(worktree_path: &std::path::Path, port: u16) -> anyhow::Result<()> {
     let claude_dir = worktree_path.join(".claude");
     tokio::fs::create_dir_all(&claude_dir).await?;
@@ -93,10 +95,7 @@ pub async fn install_hooks(worktree_path: &std::path::Path, port: u16) -> anyhow
 
     tokio::fs::write(&settings_path, serde_json::to_string_pretty(&config)?).await?;
 
-    tracing::info!(
-        "Installed hooks config at {}",
-        settings_path.display()
-    );
+    tracing::info!("Installed hooks config at {}", settings_path.display());
 
     Ok(())
 }

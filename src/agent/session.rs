@@ -23,6 +23,7 @@ pub struct DispatchMessage {
 /// Status of an agent session
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum AgentStatus {
     Spawning,
     Running,
@@ -47,6 +48,7 @@ impl std::fmt::Display for AgentStatus {
 
 /// Live state for an active agent session (in-memory)
 struct LiveSession {
+    #[allow(dead_code)]
     agent_run_id: String,
     claude_session_id: Option<String>,
     process: Child,
@@ -109,6 +111,7 @@ impl AgentManager {
     }
 
     /// Spawn a new agent for a task
+    #[allow(clippy::too_many_arguments)]
     pub async fn spawn_agent(
         &self,
         task_id: &str,
@@ -156,13 +159,19 @@ impl AgentManager {
                             wt.display()
                         );
                         if let Err(e) = worktree::remove_worktree(&repo, &wt).await {
-                            tracing::error!("Failed to cleanup worktree during failed spawn: {}", e);
+                            tracing::error!(
+                                "Failed to cleanup worktree during failed spawn: {}",
+                                e
+                            );
                         }
 
                         // If DB record was created, mark it as failed
                         if let Some(id) = run_id {
                             if let Err(e) = db.update_agent_run_status(&id, "failed") {
-                                tracing::error!("Failed to mark agent run as failed during cleanup: {}", e);
+                                tracing::error!(
+                                    "Failed to mark agent run as failed during cleanup: {}",
+                                    e
+                                );
                             }
                         }
                     });
@@ -200,7 +209,7 @@ impl AgentManager {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )?;
 
@@ -273,8 +282,7 @@ impl AgentManager {
         }
 
         // Update status to running
-        self.db
-            .update_agent_run_status(&agent_run.id, "running")?;
+        self.db.update_agent_run_status(&agent_run.id, "running")?;
 
         // Spawn succeeded - disable cleanup guard
         cleanup_guard.should_cleanup = false;
@@ -487,26 +495,24 @@ impl AgentManager {
                         }
 
                         // Check staleness (10 minutes without events)
-                        if elapsed_since_last_event >= stall_timeout {
-                            if !stalled {
-                                tracing::warn!("Agent {} stalled - no events for {:?}", run_id, elapsed_since_last_event);
-                                stalled = true;
-                                let mut sessions = sessions.write().await;
-                                if let Some(session) = sessions.get_mut(&run_id) {
-                                    session.status = AgentStatus::Stalled;
-                                    if let Err(e) = db.update_agent_run_status(&run_id, "stalled") {
-                                        tracing::error!("Failed to update agent run status to stalled for {}: {}", run_id, e);
-                                    }
-                                    if let Err(e) = db.insert_agent_event(
-                                        &run_id,
-                                        "warning",
-                                        None,
-                                        &format!("Agent stalled - no events for {:?}", elapsed_since_last_event),
-                                        None,
-                                        None,
-                                    ) {
-                                        tracing::error!("Failed to insert stalled event for {}: {}", run_id, e);
-                                    }
+                        if elapsed_since_last_event >= stall_timeout && !stalled {
+                            tracing::warn!("Agent {} stalled - no events for {:?}", run_id, elapsed_since_last_event);
+                            stalled = true;
+                            let mut sessions = sessions.write().await;
+                            if let Some(session) = sessions.get_mut(&run_id) {
+                                session.status = AgentStatus::Stalled;
+                                if let Err(e) = db.update_agent_run_status(&run_id, "stalled") {
+                                    tracing::error!("Failed to update agent run status to stalled for {}: {}", run_id, e);
+                                }
+                                if let Err(e) = db.insert_agent_event(
+                                    &run_id,
+                                    "warning",
+                                    None,
+                                    &format!("Agent stalled - no events for {:?}", elapsed_since_last_event),
+                                    None,
+                                    None,
+                                ) {
+                                    tracing::error!("Failed to insert stalled event for {}: {}", run_id, e);
                                 }
                             }
                         }
@@ -524,14 +530,8 @@ impl AgentManager {
                 } else {
                     stderr_output.clone()
                 };
-                if let Err(e) = db.insert_agent_event(
-                    &run_id,
-                    "error",
-                    None,
-                    &summary,
-                    None,
-                    None,
-                ) {
+                if let Err(e) = db.insert_agent_event(&run_id, "error", None, &summary, None, None)
+                {
                     tracing::error!("Failed to insert stderr event for {}: {}", run_id, e);
                 }
             }
@@ -550,10 +550,15 @@ impl AgentManager {
                                 description: None,
                                 priority: None,
                                 depends_on: None,
-                            ..Default::default()
+                                ..Default::default()
                             },
                         ) {
-                            tracing::error!("Failed to update task {} to failed (timeout) for agent {}: {}", task_id_owned, run_id, e);
+                            tracing::error!(
+                                "Failed to update task {} to failed (timeout) for agent {}: {}",
+                                task_id_owned,
+                                run_id,
+                                e
+                            );
                         }
                         "failed"
                     } else if budget_exceeded {
@@ -565,7 +570,7 @@ impl AgentManager {
                                 description: None,
                                 priority: None,
                                 depends_on: None,
-                            ..Default::default()
+                                ..Default::default()
                             },
                         ) {
                             tracing::error!("Failed to update task {} to failed (budget exceeded) for agent {}: {}", task_id_owned, run_id, e);
@@ -587,10 +592,15 @@ impl AgentManager {
                                             description: None,
                                             priority: None,
                                             depends_on: None,
-                                        ..Default::default()
+                                            ..Default::default()
                                         },
                                     ) {
-                                        tracing::error!("Failed to update task {} to done for agent {}: {}", task_id_owned, run_id, e);
+                                        tracing::error!(
+                                            "Failed to update task {} to done for agent {}: {}",
+                                            task_id_owned,
+                                            run_id,
+                                            e
+                                        );
                                     }
                                     "done"
                                 } else {
@@ -606,7 +616,7 @@ impl AgentManager {
                                             description: None,
                                             priority: None,
                                             depends_on: None,
-                                        ..Default::default()
+                                            ..Default::default()
                                         },
                                     ) {
                                         tracing::error!("Failed to update task {} to failed (no work done) for agent {}: {}", task_id_owned, run_id, e);
@@ -623,7 +633,7 @@ impl AgentManager {
                                         description: None,
                                         priority: None,
                                         depends_on: None,
-                                    ..Default::default()
+                                        ..Default::default()
                                     },
                                 ) {
                                     tracing::error!("Failed to update task {} to failed (exit error) for agent {}: {}", task_id_owned, run_id, e);
@@ -634,7 +644,12 @@ impl AgentManager {
                     };
 
                     if let Err(e) = db.update_agent_run_status(&run_id, final_status) {
-                        tracing::error!("Failed to update agent run status to {} for {}: {}", final_status, run_id, e);
+                        tracing::error!(
+                            "Failed to update agent run status to {} for {}: {}",
+                            final_status,
+                            run_id,
+                            e
+                        );
                     }
                     session.status = match final_status {
                         "done" => AgentStatus::Done,
@@ -643,8 +658,15 @@ impl AgentManager {
                     };
 
                     // Cleanup worktree
-                    if let Err(e) = worktree::remove_worktree(&session.repo_path, &session.worktree_path).await {
-                        tracing::error!("Failed to remove worktree {} for agent {}: {}", session.worktree_path.display(), run_id, e);
+                    if let Err(e) =
+                        worktree::remove_worktree(&session.repo_path, &session.worktree_path).await
+                    {
+                        tracing::error!(
+                            "Failed to remove worktree {} for agent {}: {}",
+                            session.worktree_path.display(),
+                            run_id,
+                            e
+                        );
                     }
 
                     // Remove from live sessions
@@ -721,7 +743,10 @@ impl AgentManager {
             match child.wait().await {
                 Ok(status) => {
                     if status.success() {
-                        tracing::debug!("Nudge for agent {} completed successfully", agent_run_id_owned);
+                        tracing::debug!(
+                            "Nudge for agent {} completed successfully",
+                            agent_run_id_owned
+                        );
                     } else {
                         tracing::warn!(
                             "Nudge for agent {} exited with status: {}",
@@ -731,7 +756,11 @@ impl AgentManager {
                     }
                 }
                 Err(e) => {
-                    tracing::error!("Failed to wait for nudge process for agent {}: {}", agent_run_id_owned, e);
+                    tracing::error!(
+                        "Failed to wait for nudge process for agent {}: {}",
+                        agent_run_id_owned,
+                        e
+                    );
                 }
             }
         });
@@ -750,8 +779,7 @@ impl AgentManager {
         session.process.kill().await.ok();
         session.status = AgentStatus::Killed;
 
-        self.db
-            .update_agent_run_status(agent_run_id, "killed")?;
+        self.db.update_agent_run_status(agent_run_id, "killed")?;
 
         // Cleanup worktree
         worktree::remove_worktree(&session.repo_path, &session.worktree_path).await?;
@@ -764,12 +792,14 @@ impl AgentManager {
     }
 
     /// Get IDs of all active sessions
+    #[allow(dead_code)]
     pub async fn active_session_ids(&self) -> Vec<String> {
         let sessions = self.sessions.read().await;
         sessions.keys().cloned().collect()
     }
 
     /// Check if an agent is active
+    #[allow(dead_code)]
     pub async fn is_active(&self, agent_run_id: &str) -> bool {
         let sessions = self.sessions.read().await;
         sessions.contains_key(agent_run_id)

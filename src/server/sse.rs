@@ -41,9 +41,11 @@ pub async fn agent_event_stream(
 ) -> impl IntoResponse {
     let rx = state.event_tx.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(move |result| match result {
-        Ok(ref broadcast @ BroadcastEvent::AgentEvent {
-            ref agent_run_id, ..
-        }) if *agent_run_id == agent_id => {
+        Ok(
+            ref broadcast @ BroadcastEvent::AgentEvent {
+                ref agent_run_id, ..
+            },
+        ) if *agent_run_id == agent_id => {
             let json = serde_json::to_string(broadcast).unwrap_or_default();
             Some(Ok::<_, Infallible>(
                 Event::default().event("agent_event").data(json),

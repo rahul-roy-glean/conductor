@@ -7,7 +7,7 @@ use crate::db::Database;
 
 // ── Goal Space types ──
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct GoalSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
@@ -21,19 +21,6 @@ pub struct GoalSettings {
     pub permission_mode: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_prompt: Option<String>,
-}
-
-impl Default for GoalSettings {
-    fn default() -> Self {
-        Self {
-            model: None,
-            max_budget_usd: None,
-            max_turns: None,
-            allowed_tools: None,
-            permission_mode: None,
-            system_prompt: None,
-        }
-    }
 }
 
 impl GoalSettings {
@@ -83,9 +70,18 @@ impl GoalSettings {
             model: task_settings.model.clone().or_else(|| self.model.clone()),
             max_budget_usd: task_settings.max_budget_usd.or(self.max_budget_usd),
             max_turns: task_settings.max_turns.or(self.max_turns),
-            allowed_tools: task_settings.allowed_tools.clone().or_else(|| self.allowed_tools.clone()),
-            permission_mode: task_settings.permission_mode.clone().or_else(|| self.permission_mode.clone()),
-            system_prompt: task_settings.system_prompt.clone().or_else(|| self.system_prompt.clone()),
+            allowed_tools: task_settings
+                .allowed_tools
+                .clone()
+                .or_else(|| self.allowed_tools.clone()),
+            permission_mode: task_settings
+                .permission_mode
+                .clone()
+                .or_else(|| self.permission_mode.clone()),
+            system_prompt: task_settings
+                .system_prompt
+                .clone()
+                .or_else(|| self.system_prompt.clone()),
         }
     }
 }
@@ -213,7 +209,12 @@ impl Database {
             )?;
         }
 
-        self.insert_goal_history(&id, "created", &format!("Goal space '{}' created", input.name), None)?;
+        self.insert_goal_history(
+            &id,
+            "created",
+            &format!("Goal space '{}' created", input.name),
+            None,
+        )?;
 
         Ok(GoalSpace {
             id,
@@ -237,7 +238,8 @@ impl Database {
         let goals = stmt
             .query_map([], |row| {
                 let settings_str: String = row.get(7)?;
-                let settings: GoalSettings = serde_json::from_str(&settings_str).unwrap_or_default();
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(GoalSpace {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -264,7 +266,8 @@ impl Database {
         let goal = stmt
             .query_row(params![id], |row| {
                 let settings_str: String = row.get(7)?;
-                let settings: GoalSettings = serde_json::from_str(&settings_str).unwrap_or_default();
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(GoalSpace {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -281,7 +284,13 @@ impl Database {
         Ok(goal)
     }
 
-    pub fn update_goal_space(&self, id: &str, name: Option<&str>, description: Option<&str>, status: Option<&str>) -> Result<()> {
+    pub fn update_goal_space(
+        &self,
+        id: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+        status: Option<&str>,
+    ) -> Result<()> {
         let conn = self.conn();
         let now = Utc::now().to_rfc3339();
 
@@ -890,14 +899,14 @@ mod tests {
             name: "Goal 1".into(),
             description: "Desc 1".into(),
             repo_path: "/tmp/1".into(),
-                settings: Default::default(),
+            settings: Default::default(),
         })
         .unwrap();
         db.create_goal_space(&CreateGoalSpace {
             name: "Goal 2".into(),
             description: "Desc 2".into(),
             repo_path: "/tmp/2".into(),
-                settings: Default::default(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -1116,7 +1125,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )
         .unwrap();
@@ -1220,7 +1229,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )
         .unwrap();
@@ -1314,7 +1323,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )
         .unwrap();
@@ -1350,7 +1359,14 @@ mod tests {
             .unwrap();
 
         let run = db
-            .create_agent_run(&task.id, &goal.id, Some("/tmp/wt"), Some("branch-1"), "sonnet", Some(5.0))
+            .create_agent_run(
+                &task.id,
+                &goal.id,
+                Some("/tmp/wt"),
+                Some("branch-1"),
+                "sonnet",
+                Some(5.0),
+            )
             .unwrap();
 
         assert_eq!(run.status, "spawning");
@@ -1428,8 +1444,7 @@ mod tests {
             .create_agent_run(&task.id, &goal.id, None, None, "sonnet", None)
             .unwrap();
 
-        db.update_agent_run_cost(&run.id, 1.23, 1000, 500)
-            .unwrap();
+        db.update_agent_run_cost(&run.id, 1.23, 1000, 500).unwrap();
         let updated = db.get_agent_run(&run.id).unwrap().unwrap();
         assert!((updated.cost_usd - 1.23).abs() < f64::EPSILON);
         assert_eq!(updated.input_tokens, 1000);
@@ -1575,8 +1590,15 @@ mod tests {
             .create_agent_run(&task.id, &goal.id, None, None, "sonnet", None)
             .unwrap();
 
-        db.insert_agent_event(&run.id, "tool_call", Some("Read"), "Reading src/main.rs", None, None)
-            .unwrap();
+        db.insert_agent_event(
+            &run.id,
+            "tool_call",
+            Some("Read"),
+            "Reading src/main.rs",
+            None,
+            None,
+        )
+        .unwrap();
         db.insert_agent_event(&run.id, "cost_update", None, "API call", None, Some(0.05))
             .unwrap();
         db.insert_agent_event(&run.id, "text_output", None, "Hello", None, None)
@@ -1617,9 +1639,12 @@ mod tests {
             .create_agent_run(&task.id, &goal.id, None, None, "sonnet", None)
             .unwrap();
 
-        db.insert_agent_event(&run.id, "a", None, "first", None, None).unwrap();
-        db.insert_agent_event(&run.id, "b", None, "second", None, None).unwrap();
-        db.insert_agent_event(&run.id, "c", None, "third", None, None).unwrap();
+        db.insert_agent_event(&run.id, "a", None, "first", None, None)
+            .unwrap();
+        db.insert_agent_event(&run.id, "b", None, "second", None, None)
+            .unwrap();
+        db.insert_agent_event(&run.id, "c", None, "third", None, None)
+            .unwrap();
 
         let events = db.list_agent_events(&run.id).unwrap();
         assert!(events[0].id < events[1].id);
@@ -1687,7 +1712,7 @@ mod tests {
                 description: None,
                 priority: None,
                 depends_on: None,
-            ..Default::default()
+                ..Default::default()
             },
         )
         .unwrap();
@@ -1697,8 +1722,7 @@ mod tests {
             .create_agent_run(&t2.id, &goal.id, None, None, "sonnet", None)
             .unwrap();
         db.update_agent_run_status(&run.id, "running").unwrap();
-        db.update_agent_run_cost(&run.id, 2.50, 5000, 2000)
-            .unwrap();
+        db.update_agent_run_cost(&run.id, 2.50, 5000, 2000).unwrap();
 
         let stats = db.get_stats().unwrap();
         assert_eq!(stats.active_agents, 1);

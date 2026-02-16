@@ -24,8 +24,7 @@ fn db_path() -> Result<PathBuf> {
     let dir = dirs::home_dir()
         .context("Could not determine home directory")?
         .join(".conductor");
-    std::fs::create_dir_all(&dir)
-        .with_context(|| format!("Failed to create {}", dir.display()))?;
+    std::fs::create_dir_all(&dir).with_context(|| format!("Failed to create {}", dir.display()))?;
     Ok(dir.join("conductor.db"))
 }
 
@@ -103,7 +102,8 @@ async fn init_app_state() -> Result<(
     let (event_tx, _) = tokio::sync::broadcast::channel(1024);
     let (dispatch_tx, dispatch_rx) = tokio::sync::mpsc::unbounded_channel();
 
-    let agent_manager = agent::session::AgentManager::new(db.clone(), event_tx.clone(), dispatch_tx);
+    let agent_manager =
+        agent::session::AgentManager::new(db.clone(), event_tx.clone(), dispatch_tx);
 
     Ok((
         Arc::new(AppState {

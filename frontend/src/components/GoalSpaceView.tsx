@@ -1,13 +1,40 @@
-import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
-  listGoals, getGoal, listTasks, createTask, createGoal, updateGoal, deleteGoal, decomposeGoal, dispatchGoal,
-  retryTask, retryAllFailed, dispatchTask,
-} from '../api/client';
-import type { GoalSpace, GoalSettings, Task, OperationUpdate } from '../types';
-import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle, Settings, ChevronUp, FolderGit2, ChevronDown, ChevronRight } from 'lucide-react';
-import { useToast } from './ToastProvider';
-import { useAgentEvents } from '../hooks/useAgentEvents';
+  listGoals,
+  getGoal,
+  listTasks,
+  createTask,
+  createGoal,
+  updateGoal,
+  deleteGoal,
+  decomposeGoal,
+  dispatchGoal,
+  retryTask,
+  retryAllFailed,
+  dispatchTask,
+} from "../api/client";
+import type { GoalSpace, GoalSettings, Task, OperationUpdate } from "../types";
+import {
+  Plus,
+  Play,
+  Sparkles,
+  Loader2,
+  Pencil,
+  Trash2,
+  Pause,
+  Play as PlayIcon,
+  Archive,
+  RotateCcw,
+  AlertTriangle,
+  Settings,
+  ChevronUp,
+  FolderGit2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { useToast } from "./ToastProvider";
+import { useAgentEvents } from "../hooks/useAgentEvents";
 
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -19,35 +46,37 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-const statusBadge: Record<GoalSpace['status'], string> = {
-  active: 'bg-green-900 text-green-300',
-  paused: 'bg-yellow-900 text-yellow-300',
-  completed: 'bg-gray-700 text-gray-300',
-  archived: 'bg-gray-800 text-gray-500',
+const statusBadge: Record<GoalSpace["status"], string> = {
+  active: "bg-green-900 text-green-300",
+  paused: "bg-yellow-900 text-yellow-300",
+  completed: "bg-gray-700 text-gray-300",
+  archived: "bg-gray-800 text-gray-500",
 };
 
-const taskStatusColor: Record<Task['status'], string> = {
-  pending: 'bg-gray-600',
-  assigned: 'bg-blue-500',
-  running: 'bg-green-500 animate-pulse',
-  done: 'bg-gray-500',
-  failed: 'bg-red-500',
-  blocked: 'bg-orange-500',
+const taskStatusColor: Record<Task["status"], string> = {
+  pending: "bg-gray-600",
+  assigned: "bg-blue-500",
+  running: "bg-green-500 animate-pulse",
+  done: "bg-gray-500",
+  failed: "bg-red-500",
+  blocked: "bg-orange-500",
 };
 
 function GoalList() {
   const [goals, setGoals] = useState<GoalSpace[]>([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [newRepoPath, setNewRepoPath] = useState('');
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newRepoPath, setNewRepoPath] = useState("");
   const [creating, setCreating] = useState(false);
   const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { addToast } = useToast();
 
   const loadGoals = () => {
-    listGoals().then(setGoals).catch(() => addToast('error', 'Failed to load goals'));
+    listGoals()
+      .then(setGoals)
+      .catch(() => addToast("error", "Failed to load goals"));
   };
 
   useEffect(() => {
@@ -58,15 +87,19 @@ function GoalList() {
     if (!newName.trim() || !newRepoPath.trim()) return;
     setCreating(true);
     try {
-      await createGoal({ name: newName, description: newDescription, repo_path: newRepoPath });
-      addToast('success', 'Goal created successfully');
-      setNewName('');
-      setNewDescription('');
-      setNewRepoPath('');
+      await createGoal({
+        name: newName,
+        description: newDescription,
+        repo_path: newRepoPath,
+      });
+      addToast("success", "Goal created successfully");
+      setNewName("");
+      setNewDescription("");
+      setNewRepoPath("");
       setShowCreate(false);
       loadGoals();
     } catch {
-      addToast('error', 'Failed to create goal');
+      addToast("error", "Failed to create goal");
     } finally {
       setCreating(false);
     }
@@ -94,8 +127,8 @@ function GoalList() {
 
   // Sort groups: active goals first, then by repo path
   const sortedGroups = [...groupedGoals.entries()].sort(([, a], [, b]) => {
-    const aActive = a.some((g) => g.status === 'active');
-    const bActive = b.some((g) => g.status === 'active');
+    const aActive = a.some((g) => g.status === "active");
+    const bActive = b.some((g) => g.status === "active");
     if (aActive && !bActive) return -1;
     if (!aActive && bActive) return 1;
     return 0;
@@ -154,7 +187,9 @@ function GoalList() {
 
       {/* Goals grouped by repo */}
       {sortedGroups.map(([repoPath, repoGoals]) => {
-        const activeCount = repoGoals.filter((g) => g.status === 'active').length;
+        const activeCount = repoGoals.filter(
+          (g) => g.status === "active",
+        ).length;
         const isCollapsed = collapsedRepos.has(repoPath);
 
         return (
@@ -170,10 +205,16 @@ function GoalList() {
                 <ChevronDown size={14} className="text-gray-500 shrink-0" />
               )}
               <FolderGit2 size={14} className="text-gray-500 shrink-0" />
-              <span className="text-sm font-mono text-gray-300 truncate">{repoPath}</span>
+              <span className="text-sm font-mono text-gray-300 truncate">
+                {repoPath}
+              </span>
               <span className="text-xs text-gray-500 shrink-0">
-                {repoGoals.length} goal{repoGoals.length !== 1 ? 's' : ''}
-                {activeCount > 0 && <span className="text-green-400 ml-1">• {activeCount} active</span>}
+                {repoGoals.length} goal{repoGoals.length !== 1 ? "s" : ""}
+                {activeCount > 0 && (
+                  <span className="text-green-400 ml-1">
+                    • {activeCount} active
+                  </span>
+                )}
               </span>
             </button>
 
@@ -187,18 +228,26 @@ function GoalList() {
                     className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-gray-100 truncate">{goal.name}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}>
+                      <h3 className="font-medium text-gray-100 truncate">
+                        {goal.name}
+                      </h3>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}
+                      >
                         {goal.status}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-400 line-clamp-2 mb-2">{goal.description}</p>
+                    <p className="text-sm text-gray-400 line-clamp-2 mb-2">
+                      {goal.description}
+                    </p>
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span title={new Date(goal.created_at).toLocaleString()}>
                         Created {timeAgo(goal.created_at)}
                       </span>
                       {goal.updated_at !== goal.created_at && (
-                        <span title={new Date(goal.updated_at).toLocaleString()}>
+                        <span
+                          title={new Date(goal.updated_at).toLocaleString()}
+                        >
                           Updated {timeAgo(goal.updated_at)}
                         </span>
                       )}
@@ -251,7 +300,9 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
   });
 
   const maxDepth = Math.max(...byDepth.keys());
-  const maxPerLevel = Math.max(...[...byDepth.values()].map((arr) => arr.length));
+  const maxPerLevel = Math.max(
+    ...[...byDepth.values()].map((arr) => arr.length),
+  );
   const svgWidth = (maxDepth + 1) * gapX + 40;
   const svgHeight = maxPerLevel * gapY + 40;
 
@@ -260,7 +311,7 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
     group.forEach((t, i) => {
       positions.set(t.id, {
         x: 20 + depth * gapX,
-        y: 20 + i * gapY + (maxPerLevel - group.length) * gapY / 2,
+        y: 20 + i * gapY + ((maxPerLevel - group.length) * gapY) / 2,
       });
     });
   }
@@ -288,8 +339,15 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
         }),
       )}
       <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5"
-          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker
+          id="arrow"
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          markerWidth="6"
+          markerHeight="6"
+          orient="auto-start-reverse"
+        >
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5563" />
         </marker>
       </defs>
@@ -297,12 +355,14 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
       {tasks.map((t) => {
         const pos = positions.get(t.id);
         if (!pos) return null;
-        const color = taskStatusColor[t.status].split(' ')[0];
+        const color = taskStatusColor[t.status].split(" ")[0];
         return (
           <g key={t.id}>
             <rect
-              x={pos.x} y={pos.y}
-              width={nodeWidth} height={nodeHeight}
+              x={pos.x}
+              y={pos.y}
+              width={nodeWidth}
+              height={nodeHeight}
               rx={6}
               className={`${color} fill-current`}
               opacity={0.3}
@@ -310,11 +370,12 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
               strokeWidth={1}
             />
             <text
-              x={pos.x + 8} y={pos.y + nodeHeight / 2 + 4}
+              x={pos.x + 8}
+              y={pos.y + nodeHeight / 2 + 4}
               className="fill-gray-200 text-[11px]"
               fontFamily="monospace"
             >
-              {t.title.length > 16 ? t.title.slice(0, 15) + '...' : t.title}
+              {t.title.length > 16 ? t.title.slice(0, 15) + "..." : t.title}
             </text>
           </g>
         );
@@ -323,7 +384,13 @@ function TaskDAG({ tasks }: { tasks: Task[] }) {
   );
 }
 
-function OperationProgressPanel({ activeOp, logs }: { activeOp: OperationUpdate; logs: string[] }) {
+function OperationProgressPanel({
+  activeOp,
+  logs,
+}: {
+  activeOp: OperationUpdate;
+  logs: string[];
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -337,7 +404,9 @@ function OperationProgressPanel({ activeOp, logs }: { activeOp: OperationUpdate;
       <div className="flex items-center gap-2 mb-3">
         <Loader2 size={16} className="animate-spin text-purple-400 shrink-0" />
         <span className="text-sm font-medium text-gray-200">
-          {activeOp.operation_type === 'decompose' ? 'Decomposing goal...' : 'Dispatching agents...'}
+          {activeOp.operation_type === "decompose"
+            ? "Decomposing goal..."
+            : "Dispatching agents..."}
         </span>
       </div>
       {logs.length > 0 && (
@@ -362,15 +431,17 @@ function GoalDetail() {
   const [goal, setGoal] = useState<GoalSpace | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
   const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
-  const [activeOperationId, setActiveOperationId] = useState<string | null>(null);
+  const [activeOperationId, setActiveOperationId] = useState<string | null>(
+    null,
+  );
   const prevOpStatusRef = useRef<string | null>(null);
 
   // Settings panel state
@@ -378,8 +449,10 @@ function GoalDetail() {
   const [settingsForm, setSettingsForm] = useState<GoalSettings>({});
   const [savingSettings, setSavingSettings] = useState(false);
 
-  const activeOp = activeOperationId ? operations.get(activeOperationId) : undefined;
-  const operationInProgress = activeOp?.status === 'running';
+  const activeOp = activeOperationId
+    ? operations.get(activeOperationId)
+    : undefined;
+  const operationInProgress = activeOp?.status === "running";
 
   // React to operation completion/failure
   useEffect(() => {
@@ -388,13 +461,13 @@ function GoalDetail() {
     prevOpStatusRef.current = activeOp.status;
     if (prevStatus === activeOp.status) return;
 
-    if (activeOp.status === 'completed') {
-      addToast('success', activeOp.message || 'Operation completed');
+    if (activeOp.status === "completed") {
+      addToast("success", activeOp.message || "Operation completed");
       loadData();
       setActiveOperationId(null);
       prevOpStatusRef.current = null;
-    } else if (activeOp.status === 'failed') {
-      addToast('error', activeOp.message || 'Operation failed');
+    } else if (activeOp.status === "failed") {
+      addToast("error", activeOp.message || "Operation failed");
       setActiveOperationId(null);
       prevOpStatusRef.current = null;
     }
@@ -402,8 +475,12 @@ function GoalDetail() {
 
   const loadData = () => {
     if (!id) return;
-    getGoal(id).then(setGoal).catch(() => addToast('error', 'Failed to load goal'));
-    listTasks(id).then(setTasks).catch(() => addToast('error', 'Failed to load tasks'));
+    getGoal(id)
+      .then(setGoal)
+      .catch(() => addToast("error", "Failed to load goal"));
+    listTasks(id)
+      .then(setTasks)
+      .catch(() => addToast("error", "Failed to load tasks"));
   };
 
   useEffect(() => {
@@ -420,23 +497,23 @@ function GoalDetail() {
     if (!id || !newTitle.trim()) return;
     try {
       await createTask(id, { title: newTitle, description: newDesc });
-      setNewTitle('');
-      setNewDesc('');
+      setNewTitle("");
+      setNewDesc("");
       setShowAddTask(false);
-      addToast('success', 'Task created');
+      addToast("success", "Task created");
       loadData();
     } catch {
-      addToast('error', 'Failed to create task');
+      addToast("error", "Failed to create task");
     }
   };
 
   const handleRetryTask = async (taskId: string) => {
     try {
       await retryTask(taskId);
-      addToast('success', 'Task reset to pending — agent will be dispatched');
+      addToast("success", "Task reset to pending — agent will be dispatched");
       loadData();
     } catch {
-      addToast('error', 'Failed to retry task');
+      addToast("error", "Failed to retry task");
     }
   };
 
@@ -444,10 +521,10 @@ function GoalDetail() {
     if (!id) return;
     try {
       const result = await retryAllFailed(id);
-      addToast('success', `Retrying ${result.retried} failed task(s)`);
+      addToast("success", `Retrying ${result.retried} failed task(s)`);
       loadData();
     } catch {
-      addToast('error', 'Failed to retry tasks');
+      addToast("error", "Failed to retry tasks");
     }
   };
 
@@ -455,10 +532,10 @@ function GoalDetail() {
     try {
       const result = await dispatchTask(taskId);
       setActiveOperationId(result.operation_id);
-      prevOpStatusRef.current = 'running';
-      addToast('success', `Dispatching agent for "${taskTitle}"`);
+      prevOpStatusRef.current = "running";
+      addToast("success", `Dispatching agent for "${taskTitle}"`);
     } catch {
-      addToast('error', 'Failed to dispatch task');
+      addToast("error", "Failed to dispatch task");
     }
   };
 
@@ -467,9 +544,9 @@ function GoalDetail() {
     try {
       const result = await decomposeGoal(id);
       setActiveOperationId(result.operation_id);
-      prevOpStatusRef.current = 'running';
+      prevOpStatusRef.current = "running";
     } catch {
-      addToast('error', 'Failed to decompose goal');
+      addToast("error", "Failed to decompose goal");
     }
   };
 
@@ -478,9 +555,9 @@ function GoalDetail() {
     try {
       const result = await dispatchGoal(id);
       setActiveOperationId(result.operation_id);
-      prevOpStatusRef.current = 'running';
+      prevOpStatusRef.current = "running";
     } catch {
-      addToast('error', 'Failed to dispatch goal');
+      addToast("error", "Failed to dispatch goal");
     }
   };
 
@@ -496,11 +573,11 @@ function GoalDetail() {
     setSaving(true);
     try {
       await updateGoal(id, { name: editName, description: editDescription });
-      addToast('success', 'Goal updated');
+      addToast("success", "Goal updated");
       setEditing(false);
       loadData();
     } catch {
-      addToast('error', 'Failed to update goal');
+      addToast("error", "Failed to update goal");
     } finally {
       setSaving(false);
     }
@@ -508,28 +585,28 @@ function GoalDetail() {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (!window.confirm('Are you sure you want to delete this goal?')) return;
+    if (!window.confirm("Are you sure you want to delete this goal?")) return;
     setDeleting(true);
     try {
       await deleteGoal(id);
-      addToast('success', 'Goal deleted');
-      navigate('/goals');
+      addToast("success", "Goal deleted");
+      navigate("/goals");
     } catch {
-      addToast('error', 'Failed to delete goal');
+      addToast("error", "Failed to delete goal");
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleStatusChange = async (status: GoalSpace['status']) => {
+  const handleStatusChange = async (status: GoalSpace["status"]) => {
     if (!id) return;
     setStatusLoading(status);
     try {
       await updateGoal(id, { status });
-      addToast('success', `Goal ${status}`);
+      addToast("success", `Goal ${status}`);
       loadData();
     } catch {
-      addToast('error', `Failed to set status to ${status}`);
+      addToast("error", `Failed to set status to ${status}`);
     } finally {
       setStatusLoading(null);
     }
@@ -540,11 +617,11 @@ function GoalDetail() {
     setSavingSettings(true);
     try {
       await updateGoal(id, { settings: settingsForm });
-      addToast('success', 'Settings saved');
+      addToast("success", "Settings saved");
       setShowSettings(false);
       loadData();
     } catch {
-      addToast('error', 'Failed to save settings');
+      addToast("error", "Failed to save settings");
     } finally {
       setSavingSettings(false);
     }
@@ -609,43 +686,53 @@ function GoalDetail() {
                 )}
               </div>
               {/* Settings badges */}
-              {goal.settings && (goal.settings.model || goal.settings.max_budget_usd || goal.settings.max_turns || goal.settings.permission_mode || (goal.settings.allowed_tools && goal.settings.allowed_tools.length > 0) || goal.settings.system_prompt) && (
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {goal.settings.model && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-800">
-                      Model: {goal.settings.model}
-                    </span>
-                  )}
-                  {goal.settings.max_budget_usd !== undefined && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-green-900/30 text-green-300 border border-green-800">
-                      Budget: ${goal.settings.max_budget_usd}
-                    </span>
-                  )}
-                  {goal.settings.max_turns !== undefined && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-purple-900/30 text-purple-300 border border-purple-800">
-                      Turns: {goal.settings.max_turns}
-                    </span>
-                  )}
-                  {goal.settings.permission_mode && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-orange-900/30 text-orange-300 border border-orange-800">
-                      Mode: {goal.settings.permission_mode}
-                    </span>
-                  )}
-                  {goal.settings.allowed_tools && goal.settings.allowed_tools.length > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800">
-                      Tools: {goal.settings.allowed_tools.length}
-                    </span>
-                  )}
-                  {goal.settings.system_prompt && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-pink-900/30 text-pink-300 border border-pink-800">
-                      Custom prompt
-                    </span>
-                  )}
-                </div>
-              )}
+              {goal.settings &&
+                (goal.settings.model ||
+                  goal.settings.max_budget_usd ||
+                  goal.settings.max_turns ||
+                  goal.settings.permission_mode ||
+                  (goal.settings.allowed_tools &&
+                    goal.settings.allowed_tools.length > 0) ||
+                  goal.settings.system_prompt) && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {goal.settings.model && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-blue-900/30 text-blue-300 border border-blue-800">
+                        Model: {goal.settings.model}
+                      </span>
+                    )}
+                    {goal.settings.max_budget_usd !== undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-green-900/30 text-green-300 border border-green-800">
+                        Budget: ${goal.settings.max_budget_usd}
+                      </span>
+                    )}
+                    {goal.settings.max_turns !== undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-purple-900/30 text-purple-300 border border-purple-800">
+                        Turns: {goal.settings.max_turns}
+                      </span>
+                    )}
+                    {goal.settings.permission_mode && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-orange-900/30 text-orange-300 border border-orange-800">
+                        Mode: {goal.settings.permission_mode}
+                      </span>
+                    )}
+                    {goal.settings.allowed_tools &&
+                      goal.settings.allowed_tools.length > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-cyan-900/30 text-cyan-300 border border-cyan-800">
+                          Tools: {goal.settings.allowed_tools.length}
+                        </span>
+                      )}
+                    {goal.settings.system_prompt && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-pink-900/30 text-pink-300 border border-pink-800">
+                        Custom prompt
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}>
+              <span
+                className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}
+              >
                 {goal.status}
               </span>
               <button
@@ -668,7 +755,11 @@ function GoalDetail() {
                 className="p-1.5 text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
                 title="Delete goal"
               >
-                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {deleting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
               </button>
             </div>
           </div>
@@ -679,7 +770,9 @@ function GoalDetail() {
       {showSettings && (
         <div className="bg-gray-800 rounded-lg p-4 border border-gray-700 space-y-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-100">Agent Settings</h3>
+            <h3 className="text-sm font-semibold text-gray-100">
+              Agent Settings
+            </h3>
             <button
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-gray-200"
@@ -695,16 +788,29 @@ function GoalDetail() {
               <input
                 type="text"
                 list="model-options"
-                value={settingsForm.model || ''}
-                onChange={(e) => setSettingsForm({ ...settingsForm, model: e.target.value || undefined })}
+                value={settingsForm.model || ""}
+                onChange={(e) =>
+                  setSettingsForm({
+                    ...settingsForm,
+                    model: e.target.value || undefined,
+                  })
+                }
                 placeholder="Default (or enter custom model ID)"
                 className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
               />
               <datalist id="model-options">
-                <option value="claude-opus-4-6[1m]">Opus 4.6 (1M context) — claude-opus-4-6[1m]</option>
-                <option value="claude-opus-4-6">Opus 4.6 — claude-opus-4-6</option>
-                <option value="claude-sonnet-4-5-20250929">Sonnet 4.5 — claude-sonnet-4-5-20250929</option>
-                <option value="claude-3-5-haiku-20241022">Haiku 3.5 — claude-3-5-haiku-20241022</option>
+                <option value="claude-opus-4-6[1m]">
+                  Opus 4.6 (1M context) — claude-opus-4-6[1m]
+                </option>
+                <option value="claude-opus-4-6">
+                  Opus 4.6 — claude-opus-4-6
+                </option>
+                <option value="claude-sonnet-4-5-20250929">
+                  Sonnet 4.5 — claude-sonnet-4-5-20250929
+                </option>
+                <option value="claude-3-5-haiku-20241022">
+                  Haiku 3.5 — claude-3-5-haiku-20241022
+                </option>
                 <option value="sonnet">Sonnet (short alias)</option>
                 <option value="opus">Opus (short alias)</option>
                 <option value="haiku">Haiku (short alias)</option>
@@ -713,13 +819,22 @@ function GoalDetail() {
 
             {/* Max Budget */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Max Budget (USD)</label>
+              <label className="block text-xs text-gray-400 mb-1">
+                Max Budget (USD)
+              </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
-                value={settingsForm.max_budget_usd || ''}
-                onChange={(e) => setSettingsForm({ ...settingsForm, max_budget_usd: e.target.value ? parseFloat(e.target.value) : undefined })}
+                value={settingsForm.max_budget_usd || ""}
+                onChange={(e) =>
+                  setSettingsForm({
+                    ...settingsForm,
+                    max_budget_usd: e.target.value
+                      ? parseFloat(e.target.value)
+                      : undefined,
+                  })
+                }
                 placeholder="No limit"
                 className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
               />
@@ -727,12 +842,21 @@ function GoalDetail() {
 
             {/* Max Turns */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Max Turns</label>
+              <label className="block text-xs text-gray-400 mb-1">
+                Max Turns
+              </label>
               <input
                 type="number"
                 min="1"
-                value={settingsForm.max_turns || ''}
-                onChange={(e) => setSettingsForm({ ...settingsForm, max_turns: e.target.value ? parseInt(e.target.value) : undefined })}
+                value={settingsForm.max_turns || ""}
+                onChange={(e) =>
+                  setSettingsForm({
+                    ...settingsForm,
+                    max_turns: e.target.value
+                      ? parseInt(e.target.value)
+                      : undefined,
+                  })
+                }
                 placeholder="No limit"
                 className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
               />
@@ -740,10 +864,17 @@ function GoalDetail() {
 
             {/* Permission Mode */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Permission Mode</label>
+              <label className="block text-xs text-gray-400 mb-1">
+                Permission Mode
+              </label>
               <select
-                value={settingsForm.permission_mode || ''}
-                onChange={(e) => setSettingsForm({ ...settingsForm, permission_mode: e.target.value || undefined })}
+                value={settingsForm.permission_mode || ""}
+                onChange={(e) =>
+                  setSettingsForm({
+                    ...settingsForm,
+                    permission_mode: e.target.value || undefined,
+                  })
+                }
                 className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500"
               >
                 <option value="">Default</option>
@@ -756,10 +887,25 @@ function GoalDetail() {
 
           {/* Allowed Tools */}
           <div>
-            <label className="block text-xs text-gray-400 mb-2">Allowed Tools</label>
+            <label className="block text-xs text-gray-400 mb-2">
+              Allowed Tools
+            </label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {['Bash', 'Read', 'Edit', 'Write', 'Grep', 'Glob', 'WebFetch', 'WebSearch', 'NotebookEdit'].map((tool) => (
-                <label key={tool} className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              {[
+                "Bash",
+                "Read",
+                "Edit",
+                "Write",
+                "Grep",
+                "Glob",
+                "WebFetch",
+                "WebSearch",
+                "NotebookEdit",
+              ].map((tool) => (
+                <label
+                  key={tool}
+                  className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"
+                >
                   <input
                     type="checkbox"
                     checked={(settingsForm.allowed_tools || []).includes(tool)}
@@ -774,10 +920,17 @@ function GoalDetail() {
 
           {/* System Prompt */}
           <div>
-            <label className="block text-xs text-gray-400 mb-1">System Prompt (Additional Instructions)</label>
+            <label className="block text-xs text-gray-400 mb-1">
+              System Prompt (Additional Instructions)
+            </label>
             <textarea
-              value={settingsForm.system_prompt || ''}
-              onChange={(e) => setSettingsForm({ ...settingsForm, system_prompt: e.target.value || undefined })}
+              value={settingsForm.system_prompt || ""}
+              onChange={(e) =>
+                setSettingsForm({
+                  ...settingsForm,
+                  system_prompt: e.target.value || undefined,
+                })
+              }
               placeholder="Optional additional instructions appended to each agent"
               className="w-full bg-gray-900 border border-gray-600 rounded p-2 text-sm text-gray-100 h-24 resize-none focus:outline-none focus:border-blue-500"
             />
@@ -805,33 +958,47 @@ function GoalDetail() {
 
       {/* Status controls */}
       <div className="flex gap-2">
-        {goal.status === 'active' && (
+        {goal.status === "active" && (
           <button
-            onClick={() => handleStatusChange('paused')}
+            onClick={() => handleStatusChange("paused")}
             disabled={statusLoading !== null}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-yellow-800 hover:bg-yellow-700 rounded text-yellow-200 transition-colors disabled:opacity-50"
           >
-            {statusLoading === 'paused' ? <Loader2 size={12} className="animate-spin" /> : <Pause size={12} />}
+            {statusLoading === "paused" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Pause size={12} />
+            )}
             Pause
           </button>
         )}
-        {goal.status === 'paused' && (
+        {goal.status === "paused" && (
           <button
-            onClick={() => handleStatusChange('active')}
+            onClick={() => handleStatusChange("active")}
             disabled={statusLoading !== null}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-green-800 hover:bg-green-700 rounded text-green-200 transition-colors disabled:opacity-50"
           >
-            {statusLoading === 'active' ? <Loader2 size={12} className="animate-spin" /> : <PlayIcon size={12} />}
+            {statusLoading === "active" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <PlayIcon size={12} />
+            )}
             Resume
           </button>
         )}
-        {(goal.status === 'active' || goal.status === 'paused' || goal.status === 'completed') && (
+        {(goal.status === "active" ||
+          goal.status === "paused" ||
+          goal.status === "completed") && (
           <button
-            onClick={() => handleStatusChange('archived')}
+            onClick={() => handleStatusChange("archived")}
             disabled={statusLoading !== null}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded text-gray-300 transition-colors disabled:opacity-50"
           >
-            {statusLoading === 'archived' ? <Loader2 size={12} className="animate-spin" /> : <Archive size={12} />}
+            {statusLoading === "archived" ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <Archive size={12} />
+            )}
             Archive
           </button>
         )}
@@ -839,16 +1006,22 @@ function GoalDetail() {
 
       {/* Operation progress panel with activity log */}
       {activeOp && operationInProgress && (
-        <OperationProgressPanel activeOp={activeOp} logs={operationLogs.get(activeOp.operation_id) ?? []} />
+        <OperationProgressPanel
+          activeOp={activeOp}
+          logs={operationLogs.get(activeOp.operation_id) ?? []}
+        />
       )}
 
       {/* Failed tasks warning banner */}
-      {tasks.some((t) => t.status === 'failed') && (
+      {tasks.some((t) => t.status === "failed") && (
         <div className="flex items-center gap-3 px-4 py-3 bg-red-900/30 border border-red-800 rounded-lg">
           <AlertTriangle size={16} className="text-red-400 shrink-0" />
           <span className="text-sm text-red-300">
-            {tasks.filter((t) => t.status === 'failed').length} task{tasks.filter((t) => t.status === 'failed').length !== 1 ? 's' : ''} failed.
-            {' '}Dependent tasks are blocked until failed tasks are retried.
+            {tasks.filter((t) => t.status === "failed").length} task
+            {tasks.filter((t) => t.status === "failed").length !== 1
+              ? "s"
+              : ""}{" "}
+            failed. Dependent tasks are blocked until failed tasks are retried.
           </span>
           <button
             onClick={handleRetryAllFailed}
@@ -872,7 +1045,11 @@ function GoalDetail() {
           disabled={operationInProgress}
           className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-700 hover:bg-purple-600 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {operationInProgress && activeOp?.operation_type === 'decompose' ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          {operationInProgress && activeOp?.operation_type === "decompose" ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Sparkles size={14} />
+          )}
           Decompose
         </button>
         <button
@@ -880,7 +1057,11 @@ function GoalDetail() {
           disabled={operationInProgress}
           className="flex items-center gap-2 px-3 py-2 text-sm bg-green-700 hover:bg-green-600 rounded text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {operationInProgress && activeOp?.operation_type === 'dispatch' ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+          {operationInProgress && activeOp?.operation_type === "dispatch" ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Play size={14} />
+          )}
           Dispatch All
         </button>
       </div>
@@ -925,22 +1106,33 @@ function GoalDetail() {
             <div
               key={task.id}
               className={`bg-gray-800 rounded-lg p-3 border flex items-center gap-3 ${
-                task.status === 'failed' ? 'border-red-800/50' : 'border-gray-700'
+                task.status === "failed"
+                  ? "border-red-800/50"
+                  : "border-gray-700"
               }`}
             >
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${taskStatusColor[task.status]}`} />
+              <span
+                className={`w-2.5 h-2.5 rounded-full shrink-0 ${taskStatusColor[task.status]}`}
+              />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-gray-100 truncate">{task.title}</p>
-                <p className="text-xs text-gray-500 truncate">{task.description}</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {task.description}
+                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-gray-500" title={new Date(task.updated_at).toLocaleString()}>
+                <span
+                  className="text-xs text-gray-500"
+                  title={new Date(task.updated_at).toLocaleString()}
+                >
                   {timeAgo(task.updated_at)}
                 </span>
-                <span className={`text-xs ${task.status === 'failed' ? 'text-red-400' : 'text-gray-400'}`}>
+                <span
+                  className={`text-xs ${task.status === "failed" ? "text-red-400" : "text-gray-400"}`}
+                >
                   {task.status}
                 </span>
-                {(task.status === 'pending' || task.status === 'failed') && (
+                {(task.status === "pending" || task.status === "failed") && (
                   <button
                     onClick={() => handleDispatchTask(task.id, task.title)}
                     disabled={operationInProgress}
@@ -950,7 +1142,7 @@ function GoalDetail() {
                     <Play size={11} /> Dispatch
                   </button>
                 )}
-                {task.status === 'failed' && (
+                {task.status === "failed" && (
                   <button
                     onClick={() => handleRetryTask(task.id)}
                     className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-yellow-400 transition-colors"
@@ -963,7 +1155,9 @@ function GoalDetail() {
             </div>
           ))}
           {tasks.length === 0 && (
-            <p className="text-gray-500 text-sm">No tasks yet. Decompose the goal or add tasks manually.</p>
+            <p className="text-gray-500 text-sm">
+              No tasks yet. Decompose the goal or add tasks manually.
+            </p>
           )}
         </div>
       </div>

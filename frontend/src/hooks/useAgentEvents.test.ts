@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useAgentEvents } from './useAgentEvents';
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
+import { useAgentEvents } from "./useAgentEvents";
 
 type EventHandler = ((event: MessageEvent) => void) | (() => void) | null;
 
@@ -63,20 +63,20 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('useAgentEvents', () => {
-  it('creates EventSource with correct URL (no agentId)', () => {
+describe("useAgentEvents", () => {
+  it("creates EventSource with correct URL (no agentId)", () => {
     renderHook(() => useAgentEvents());
     expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toBe('/api/events');
+    expect(MockEventSource.instances[0].url).toBe("/api/events");
   });
 
-  it('creates EventSource with agent-specific URL', () => {
-    renderHook(() => useAgentEvents({ agentId: 'abc-123' }));
+  it("creates EventSource with agent-specific URL", () => {
+    renderHook(() => useAgentEvents({ agentId: "abc-123" }));
     expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toBe('/api/agents/abc-123/stream');
+    expect(MockEventSource.instances[0].url).toBe("/api/agents/abc-123/stream");
   });
 
-  it('connected state starts false, becomes true on open', () => {
+  it("connected state starts false, becomes true on open", () => {
     const { result } = renderHook(() => useAgentEvents());
 
     expect(result.current.connected).toBe(false);
@@ -88,58 +88,64 @@ describe('useAgentEvents', () => {
     expect(result.current.connected).toBe(true);
   });
 
-  it('agent_update events are parsed and stored in agents map', () => {
+  it("agent_update events are parsed and stored in agents map", () => {
     const { result } = renderHook(() => useAgentEvents());
 
     const agentData = {
-      id: 'agent-1',
-      task_id: 'task-1',
-      goal_space_id: 'goal-1',
+      id: "agent-1",
+      task_id: "task-1",
+      goal_space_id: "goal-1",
       claude_session_id: null,
       worktree_path: null,
       branch: null,
-      status: 'running',
-      model: 'claude-3',
+      status: "running",
+      model: "claude-3",
       cost_usd: 0.5,
       input_tokens: 100,
       output_tokens: 50,
       max_budget_usd: null,
-      started_at: '2025-01-01T00:00:00Z',
+      started_at: "2025-01-01T00:00:00Z",
       last_activity_at: null,
       finished_at: null,
     };
 
     act(() => {
-      MockEventSource.instances[0].simulateEvent('agent_update', JSON.stringify(agentData));
+      MockEventSource.instances[0].simulateEvent(
+        "agent_update",
+        JSON.stringify(agentData),
+      );
     });
 
     expect(result.current.agents.size).toBe(1);
-    expect(result.current.agents.get('agent-1')).toEqual(agentData);
+    expect(result.current.agents.get("agent-1")).toEqual(agentData);
   });
 
-  it('agent_event events are parsed and stored in events array', () => {
+  it("agent_event events are parsed and stored in events array", () => {
     const { result } = renderHook(() => useAgentEvents());
 
     const eventData = {
       id: 1,
-      agent_run_id: 'agent-1',
-      event_type: 'text_output',
+      agent_run_id: "agent-1",
+      event_type: "text_output",
       tool_name: null,
-      summary: 'Some output',
+      summary: "Some output",
       raw_json: null,
       cost_delta_usd: null,
-      created_at: '2025-01-01T00:00:00Z',
+      created_at: "2025-01-01T00:00:00Z",
     };
 
     act(() => {
-      MockEventSource.instances[0].simulateEvent('agent_event', JSON.stringify(eventData));
+      MockEventSource.instances[0].simulateEvent(
+        "agent_event",
+        JSON.stringify(eventData),
+      );
     });
 
     expect(result.current.events).toHaveLength(1);
     expect(result.current.events[0]).toEqual(eventData);
   });
 
-  it('on error, connected becomes false', () => {
+  it("on error, connected becomes false", () => {
     const { result } = renderHook(() => useAgentEvents());
 
     act(() => {
@@ -153,7 +159,7 @@ describe('useAgentEvents', () => {
     expect(result.current.connected).toBe(false);
   });
 
-  it('cleanup closes EventSource on unmount', () => {
+  it("cleanup closes EventSource on unmount", () => {
     const { unmount } = renderHook(() => useAgentEvents());
 
     const es = MockEventSource.instances[0];

@@ -11,7 +11,7 @@ export interface GoalSpace {
   id: string;
   name: string;
   description: string;
-  status: 'active' | 'paused' | 'completed' | 'archived';
+  status: "active" | "paused" | "completed" | "archived";
   repo_path: string;
   created_at: string;
   updated_at: string;
@@ -23,7 +23,7 @@ export interface Task {
   goal_space_id: string;
   title: string;
   description: string;
-  status: 'pending' | 'assigned' | 'running' | 'done' | 'failed' | 'blocked';
+  status: "pending" | "assigned" | "running" | "done" | "failed" | "blocked";
   priority: number;
   depends_on: string[];
   created_at: string;
@@ -37,7 +37,7 @@ export interface AgentRun {
   claude_session_id: string | null;
   worktree_path: string | null;
   branch: string | null;
-  status: 'spawning' | 'running' | 'stalled' | 'done' | 'failed' | 'killed';
+  status: "spawning" | "running" | "stalled" | "done" | "failed" | "killed";
   model: string;
   cost_usd: number;
   input_tokens: number;
@@ -51,7 +51,14 @@ export interface AgentRun {
 export interface AgentEvent {
   id: number;
   agent_run_id: string;
-  event_type: 'tool_call' | 'tool_result' | 'text_output' | 'error' | 'cost_update' | 'stall' | 'commit';
+  event_type:
+    | "tool_call"
+    | "tool_result"
+    | "text_output"
+    | "error"
+    | "cost_update"
+    | "stall"
+    | "commit";
   tool_name: string | null;
   summary: string;
   raw_json: string | null;
@@ -68,17 +75,17 @@ export interface Stats {
 }
 
 export interface OperationUpdate {
-  kind: 'OperationUpdate';
+  kind: "OperationUpdate";
   operation_id: string;
   goal_space_id: string;
-  operation_type: 'decompose' | 'dispatch';
-  status: 'running' | 'completed' | 'failed';
+  operation_type: "decompose" | "dispatch";
+  status: "running" | "completed" | "failed";
   message: string;
   result: unknown | null;
 }
 
 export interface OperationStarted {
   operation_id: string;
-  status: 'running';
+  status: "running";
   message?: string;
 }
