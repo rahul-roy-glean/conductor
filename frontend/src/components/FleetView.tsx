@@ -7,6 +7,7 @@ import {
   Activity,
   DollarSign,
   CheckCircle,
+  Monitor,
   Zap,
   Skull,
   Loader2,
@@ -318,7 +319,13 @@ export default function FleetView() {
       })}
 
       {mergedAgents.length === 0 && (
-        <p className="text-gray-500 text-center py-12">No agents running</p>
+        <div className="text-center py-16">
+          <Monitor size={40} className="mx-auto text-gray-700 mb-3" />
+          <p className="text-gray-400 font-medium mb-1">No agents running</p>
+          <p className="text-gray-600 text-sm">
+            Create a goal and dispatch tasks to get started
+          </p>
+        </div>
       )}
 
       {nudgeId && (
