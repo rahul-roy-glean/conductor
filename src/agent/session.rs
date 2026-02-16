@@ -701,22 +701,22 @@ impl AgentManager {
         cmd.stdout(std::process::Stdio::null());
         cmd.stderr(std::process::Stdio::null());
 
-        let child = cmd.spawn().context("Failed to spawn claude resume")?;
+        let mut child = cmd.spawn().context("Failed to spawn claude resume")?;
 
-        tracing::info!("Nudged agent {} with message", agent_run_id);
+        tracing::info!("Nudged agent {} with message: {}", agent_run_id, message);
 
         // Spawn a task to await the child and log its exit status
         let agent_run_id_owned = agent_run_id.to_string();
         tokio::spawn(async move {
-            match child.wait_with_output().await {
-                Ok(output) => {
-                    if output.status.success() {
+            match child.wait().await {
+                Ok(status) => {
+                    if status.success() {
                         tracing::debug!("Nudge for agent {} completed successfully", agent_run_id_owned);
                     } else {
                         tracing::warn!(
                             "Nudge for agent {} exited with status: {}",
                             agent_run_id_owned,
-                            output.status
+                            status
                         );
                     }
                 }
