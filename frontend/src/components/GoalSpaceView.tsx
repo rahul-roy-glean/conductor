@@ -5,7 +5,7 @@ import {
   retryTask, retryAllFailed, dispatchTask,
 } from '../api/client';
 import type { GoalSpace, GoalSettings, Task, OperationUpdate } from '../types';
-import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle, Settings, ChevronUp } from 'lucide-react';
+import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle, Settings, ChevronUp, FolderGit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from './ToastProvider';
 import { useAgentEvents } from '../hooks/useAgentEvents';
 
@@ -42,6 +42,7 @@ function GoalList() {
   const [newDescription, setNewDescription] = useState('');
   const [newRepoPath, setNewRepoPath] = useState('');
   const [creating, setCreating] = useState(false);
+  const [collapsedRepos, setCollapsedRepos] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { addToast } = useToast();
 
@@ -70,6 +71,35 @@ function GoalList() {
       setCreating(false);
     }
   };
+
+  const toggleRepo = (repoPath: string) => {
+    setCollapsedRepos((prev) => {
+      const next = new Set(prev);
+      if (next.has(repoPath)) {
+        next.delete(repoPath);
+      } else {
+        next.add(repoPath);
+      }
+      return next;
+    });
+  };
+
+  // Group goals by repo_path
+  const groupedGoals = new Map<string, GoalSpace[]>();
+  for (const goal of goals) {
+    const repo = goal.repo_path;
+    if (!groupedGoals.has(repo)) groupedGoals.set(repo, []);
+    groupedGoals.get(repo)!.push(goal);
+  }
+
+  // Sort groups: active goals first, then by repo path
+  const sortedGroups = [...groupedGoals.entries()].sort(([, a], [, b]) => {
+    const aActive = a.some((g) => g.status === 'active');
+    const bActive = b.some((g) => g.status === 'active');
+    if (aActive && !bActive) return -1;
+    if (!aActive && bActive) return 1;
+    return 0;
+  });
 
   return (
     <div>
@@ -122,37 +152,68 @@ function GoalList() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {goals.map((goal) => (
-          <div
-            key={goal.id}
-            onClick={() => navigate(`/goals/${goal.id}`)}
-            className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-medium text-gray-100 truncate">{goal.name}</h3>
-              <span className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}>
-                {goal.status}
-              </span>
-            </div>
-            <p className="text-sm text-gray-400 line-clamp-2 mb-2">{goal.description}</p>
-            <p className="text-xs text-gray-500 font-mono truncate mb-2">{goal.repo_path}</p>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <span title={new Date(goal.created_at).toLocaleString()}>
-                Created {timeAgo(goal.created_at)}
-              </span>
-              {goal.updated_at !== goal.created_at && (
-                <span title={new Date(goal.updated_at).toLocaleString()}>
-                  Updated {timeAgo(goal.updated_at)}
-                </span>
+      {/* Goals grouped by repo */}
+      {sortedGroups.map(([repoPath, repoGoals]) => {
+        const activeCount = repoGoals.filter((g) => g.status === 'active').length;
+        const isCollapsed = collapsedRepos.has(repoPath);
+
+        return (
+          <div key={repoPath} className="mb-6">
+            {/* Repo header - clickable to collapse/expand */}
+            <button
+              onClick={() => toggleRepo(repoPath)}
+              className="flex items-center gap-2 mb-3 px-2 py-1.5 w-full rounded hover:bg-gray-800 transition-colors group"
+            >
+              {isCollapsed ? (
+                <ChevronRight size={14} className="text-gray-500 shrink-0" />
+              ) : (
+                <ChevronDown size={14} className="text-gray-500 shrink-0" />
               )}
-            </div>
+              <FolderGit2 size={14} className="text-gray-500 shrink-0" />
+              <span className="text-sm font-mono text-gray-300 truncate">{repoPath}</span>
+              <span className="text-xs text-gray-500 shrink-0">
+                {repoGoals.length} goal{repoGoals.length !== 1 ? 's' : ''}
+                {activeCount > 0 && <span className="text-green-400 ml-1">• {activeCount} active</span>}
+              </span>
+            </button>
+
+            {/* Goals grid - only show if not collapsed */}
+            {!isCollapsed && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {repoGoals.map((goal) => (
+                  <div
+                    key={goal.id}
+                    onClick={() => navigate(`/goals/${goal.id}`)}
+                    className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-600 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-100 truncate">{goal.name}</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${statusBadge[goal.status]}`}>
+                        {goal.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400 line-clamp-2 mb-2">{goal.description}</p>
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span title={new Date(goal.created_at).toLocaleString()}>
+                        Created {timeAgo(goal.created_at)}
+                      </span>
+                      {goal.updated_at !== goal.created_at && (
+                        <span title={new Date(goal.updated_at).toLocaleString()}>
+                          Updated {timeAgo(goal.updated_at)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-        {goals.length === 0 && (
-          <p className="text-gray-500 col-span-full text-center py-12">No goal spaces</p>
-        )}
-      </div>
+        );
+      })}
+
+      {goals.length === 0 && (
+        <p className="text-gray-500 text-center py-12">No goal spaces</p>
+      )}
     </div>
   );
 }
