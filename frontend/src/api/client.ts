@@ -50,7 +50,7 @@ export function createTask(goalId: string, data: { title: string; description: s
   return request(`/goals/${goalId}/tasks`, { method: 'POST', body: JSON.stringify(data) });
 }
 
-export function updateTask(goalId: string, taskId: string, data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority'>>): Promise<Task> {
+export function updateTask(_goalId: string, taskId: string, data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority'>>): Promise<Task> {
   return request(`/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(data) });
 }
 
@@ -102,4 +102,8 @@ export function decomposeGoal(goalId: string): Promise<OperationStarted> {
 
 export function dispatchGoal(goalId: string): Promise<OperationStarted> {
   return request(`/goals/${goalId}/dispatch`, { method: 'POST' });
+}
+
+export function dispatchTask(taskId: string): Promise<OperationStarted> {
+  return request(`/tasks/${taskId}/dispatch`, { method: 'POST' });
 }

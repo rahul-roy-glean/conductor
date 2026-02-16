@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   listGoals, getGoal, listTasks, createTask, createGoal, updateGoal, deleteGoal, decomposeGoal, dispatchGoal,
-  retryTask, retryAllFailed,
+  retryTask, retryAllFailed, dispatchTask,
 } from '../api/client';
 import type { GoalSpace, Task, OperationUpdate } from '../types';
 import { Plus, Play, Sparkles, Loader2, Pencil, Trash2, Pause, Play as PlayIcon, Archive, RotateCcw, AlertTriangle } from 'lucide-react';
@@ -379,6 +379,17 @@ function GoalDetail() {
     }
   };
 
+  const handleDispatchTask = async (taskId: string, taskTitle: string) => {
+    try {
+      const result = await dispatchTask(taskId);
+      setActiveOperationId(result.operation_id);
+      prevOpStatusRef.current = 'running';
+      addToast('success', `Dispatching agent for "${taskTitle}"`);
+    } catch {
+      addToast('error', 'Failed to dispatch task');
+    }
+  };
+
   const handleDecompose = async () => {
     if (!id) return;
     try {
@@ -664,6 +675,16 @@ function GoalDetail() {
                 <span className={`text-xs ${task.status === 'failed' ? 'text-red-400' : 'text-gray-400'}`}>
                   {task.status}
                 </span>
+                {(task.status === 'pending' || task.status === 'failed') && (
+                  <button
+                    onClick={() => handleDispatchTask(task.id, task.title)}
+                    disabled={operationInProgress}
+                    className="flex items-center gap-1 px-2 py-1 text-xs bg-green-700 hover:bg-green-600 rounded text-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Dispatch agent for this task"
+                  >
+                    <Play size={11} /> Dispatch
+                  </button>
+                )}
                 {task.status === 'failed' && (
                   <button
                     onClick={() => handleRetryTask(task.id)}

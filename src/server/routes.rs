@@ -32,6 +32,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         // Tasks
         .route("/api/tasks/{id}", put(update_task))
         .route("/api/tasks/{id}/retry", post(retry_task))
+        .route("/api/tasks/{id}/dispatch", post(dispatch_task))
         .route("/api/goals/{id}/retry-failed", post(retry_all_failed))
         // Agents
         .route("/api/agents", get(list_agents))
@@ -472,6 +473,117 @@ async fn retry_all_failed(
     }
 
     Json(json!({"ok": true, "retried": retried})).into_response()
+}
+
+async fn dispatch_task(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+) -> impl IntoResponse {
+    // Get the task to find its goal_space_id and other info
+    let task = match state.db.get_task(&task_id) {
+        Ok(Some(t)) => t,
+        Ok(None) => {
+            return (StatusCode::NOT_FOUND, Json(json!({"error": "Task not found"}))).into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": e.to_string()})),
+            )
+                .into_response()
+        }
+    };
+
+    // Get the goal space to find the repo_path and description
+    let goal = match state.db.get_goal_space(&task.goal_space_id) {
+        Ok(Some(g)) => g,
+        Ok(None) => {
+            return (StatusCode::NOT_FOUND, Json(json!({"error": "Goal space not found"}))).into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": e.to_string()})),
+            )
+                .into_response()
+        }
+    };
+
+    let operation_id = uuid::Uuid::new_v4().to_string();
+    let goal_space_id = task.goal_space_id.clone();
+
+    // Broadcast running status
+    let _ = state.event_tx.send(BroadcastEvent::OperationUpdate {
+        operation_id: operation_id.clone(),
+        goal_space_id: goal_space_id.clone(),
+        operation_type: "dispatch".to_string(),
+        status: "running".to_string(),
+        message: format!("Dispatching agent for task '{}'...", task.title),
+        result: None,
+    });
+
+    // Spawn background task
+    let op_id = operation_id.clone();
+    let state = Arc::clone(&state);
+    tokio::spawn(async move {
+        let prompt = format!(
+            "You are working on the following task as part of the goal: {}\n\n\
+             Task: {}\n\n\
+             Description: {}\n\n\
+             Work in the current directory. Make your changes, test them, and commit when done.",
+            goal.description, task.title, task.description
+        );
+
+        match state
+            .agent_manager
+            .spawn_agent(
+                &task.id,
+                &goal_space_id,
+                &prompt,
+                &goal.repo_path,
+                "sonnet",
+                Some(5.0),
+                Some(50),
+                Some(vec![
+                    "Bash".to_string(),
+                    "Read".to_string(),
+                    "Edit".to_string(),
+                    "Write".to_string(),
+                    "Grep".to_string(),
+                    "Glob".to_string(),
+                ]),
+            )
+            .await
+        {
+            Ok(_) => {
+                let _ = state.event_tx.send(BroadcastEvent::OperationUpdate {
+                    operation_id: op_id,
+                    goal_space_id: goal_space_id.clone(),
+                    operation_type: "dispatch".to_string(),
+                    status: "completed".to_string(),
+                    message: format!("Agent spawned for task '{}'", task.title),
+                    result: Some(json!({"task_id": task.id})),
+                });
+            }
+            Err(e) => {
+                tracing::error!("Failed to spawn agent for task {}: {}", task.id, e);
+                let _ = state.event_tx.send(BroadcastEvent::OperationUpdate {
+                    operation_id: op_id,
+                    goal_space_id: goal_space_id.clone(),
+                    operation_type: "dispatch".to_string(),
+                    status: "failed".to_string(),
+                    message: format!("Failed to spawn agent: {}", e),
+                    result: None,
+                });
+            }
+        }
+    });
+
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({ "operation_id": operation_id, "status": "running" })),
+    )
+        .into_response()
 }
 
 // ── Agent Handlers ──
