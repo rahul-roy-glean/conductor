@@ -71,6 +71,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -90,6 +91,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -135,6 +137,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -178,6 +181,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -207,6 +211,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -254,6 +259,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
