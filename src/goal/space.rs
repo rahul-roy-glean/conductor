@@ -1,23 +1,19 @@
 use crate::db::Database;
 use anyhow::Result;
 
-/// Check if all tasks in a goal space are done, and if so mark the goal as completed
+/// Check if all tasks in a goal space are done, and if so mark the goal as completed.
+/// This operation is atomic - it uses a single SQL statement to check and update,
+/// preventing race conditions where a task might be added between the check and the update.
 pub fn check_goal_completion(db: &Database, goal_space_id: &str) -> Result<bool> {
-    let tasks = db.list_tasks(goal_space_id)?;
+    // Use atomic DB operation to mark as completed only if all tasks are done
+    let was_completed = db.mark_goal_completed_if_all_tasks_done(goal_space_id)?;
 
-    if tasks.is_empty() {
-        return Ok(false);
-    }
-
-    let all_done = tasks.iter().all(|t| t.status == "done");
-
-    if all_done {
-        db.update_goal_space(goal_space_id, None, None, Some("completed"))?;
+    if was_completed {
         db.insert_goal_history(goal_space_id, "goal_completed", "All tasks completed", None)?;
         tracing::info!("Goal space {} completed", goal_space_id);
     }
 
-    Ok(all_done)
+    Ok(was_completed)
 }
 
 /// Get summary stats for a goal space
@@ -198,5 +194,90 @@ mod tests {
         assert_eq!(summary.running, 1);
         assert_eq!(summary.pending, 1);
         assert_eq!(summary.failed, 0);
+    }
+
+    #[test]
+    fn test_check_goal_completion_atomic_with_pending_task() {
+        // This test verifies that the atomic operation prevents a race condition.
+        // Even if we try to mark the goal as completed when there's a pending task,
+        // the atomic SQL statement should prevent it.
+        let db = test_db();
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp".into(),
+            })
+            .unwrap();
+
+        let t1 = db
+            .create_task(
+                &goal.id,
+                &CreateTask {
+                    title: "T1".into(),
+                    description: "D".into(),
+                    priority: 0,
+                    depends_on: vec![],
+                },
+            )
+            .unwrap();
+
+        // Mark t1 as done
+        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None }).unwrap();
+
+        // Simulate the race: add a new pending task just before checking completion
+        db.create_task(
+            &goal.id,
+            &CreateTask {
+                title: "T2".into(),
+                description: "D".into(),
+                priority: 0,
+                depends_on: vec![],
+            },
+        )
+        .unwrap();
+
+        // Try to mark as completed - should fail atomically because T2 is pending
+        let completed = check_goal_completion(&db, &goal.id).unwrap();
+        assert!(!completed);
+
+        // Verify goal is still active
+        let g = db.get_goal_space(&goal.id).unwrap().unwrap();
+        assert_eq!(g.status, "active");
+    }
+
+    #[test]
+    fn test_atomic_completion_returns_false_when_already_completed() {
+        let db = test_db();
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp".into(),
+            })
+            .unwrap();
+
+        let t1 = db
+            .create_task(
+                &goal.id,
+                &CreateTask {
+                    title: "T1".into(),
+                    description: "D".into(),
+                    priority: 0,
+                    depends_on: vec![],
+                },
+            )
+            .unwrap();
+
+        // Mark task as done
+        db.update_task(&t1.id, &UpdateTask { status: Some("done".into()), title: None, description: None, priority: None, depends_on: None }).unwrap();
+
+        // First completion should succeed
+        let completed = check_goal_completion(&db, &goal.id).unwrap();
+        assert!(completed);
+
+        // Second completion should return false (already completed)
+        let completed_again = check_goal_completion(&db, &goal.id).unwrap();
+        assert!(!completed_again);
     }
 }
