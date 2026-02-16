@@ -97,6 +97,7 @@ async fn test_create_and_list_goals() {
             name: "Goal 1".into(),
             description: "Desc".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     state
@@ -105,6 +106,7 @@ async fn test_create_and_list_goals() {
             name: "Goal 2".into(),
             description: "Desc".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -133,6 +135,7 @@ async fn test_get_goal() {
             name: "Find Me".into(),
             description: "Desc".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -180,6 +183,7 @@ async fn test_update_goal() {
             name: "Original".into(),
             description: "Desc".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -214,6 +218,7 @@ async fn test_delete_goal_archives() {
             name: "To Archive".into(),
             description: "Desc".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -246,6 +251,7 @@ async fn test_create_task() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -285,6 +291,7 @@ async fn test_list_tasks() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
 
@@ -338,6 +345,7 @@ async fn test_update_task() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
@@ -383,6 +391,7 @@ async fn test_retry_task() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
@@ -480,6 +489,7 @@ async fn test_get_agent_with_data() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
@@ -526,6 +536,7 @@ async fn test_get_agent_events() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
@@ -650,6 +661,7 @@ async fn test_stats_with_data() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
@@ -753,6 +765,7 @@ async fn test_stop_hook_marks_agent_done() {
             name: "G".into(),
             description: "D".into(),
             repo_path: "/tmp".into(),
+            settings: Default::default(),
         })
         .unwrap();
     let task = state
