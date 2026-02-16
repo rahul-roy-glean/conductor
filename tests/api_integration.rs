@@ -240,6 +240,199 @@ async fn test_delete_goal_archives() {
     assert_eq!(archived.status, "archived");
 }
 
+#[tokio::test]
+async fn test_create_goal_with_settings() {
+    let state = test_state();
+    let app = create_router(state);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/goals")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Test Goal with Settings",
+                        "description": "Test description",
+                        "repo_path": "/tmp/test",
+                        "settings": {
+                            "model": "opus",
+                            "max_budget_usd": 10.0,
+                            "max_turns": 100,
+                            "allowed_tools": ["Bash", "Read", "Write"]
+                        }
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body = json_body(resp).await;
+    assert_eq!(body["name"], "Test Goal with Settings");
+    assert_eq!(body["settings"]["model"], "opus");
+    assert_eq!(body["settings"]["max_budget_usd"], 10.0);
+    assert_eq!(body["settings"]["max_turns"], 100);
+    assert_eq!(body["settings"]["allowed_tools"].as_array().unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn test_create_goal_without_settings() {
+    let state = test_state();
+    let app = create_router(state);
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/goals")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "name": "Test Goal without Settings",
+                        "description": "Test description",
+                        "repo_path": "/tmp/test"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let body = json_body(resp).await;
+    assert_eq!(body["name"], "Test Goal without Settings");
+    // Settings should be present but empty (all fields are None)
+    assert!(body["settings"].is_object());
+}
+
+#[tokio::test]
+async fn test_update_goal_settings() {
+    let state = test_state();
+    let goal = state
+        .db
+        .create_goal_space(&conductor::db::queries::CreateGoalSpace {
+            name: "Goal to Update".into(),
+            description: "Desc".into(),
+            repo_path: "/tmp".into(),
+            settings: Default::default(),
+        })
+        .unwrap();
+
+    let app = create_router(state.clone());
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(&format!("/api/goals/{}", goal.id))
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    json!({
+                        "settings": {
+                            "model": "haiku",
+                            "max_budget_usd": 2.5,
+                            "max_turns": 25
+                        }
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // Verify the settings were updated
+    let updated = state.db.get_goal_space(&goal.id).unwrap().unwrap();
+    assert_eq!(updated.settings.model, Some("haiku".to_string()));
+    assert_eq!(updated.settings.max_budget_usd, Some(2.5));
+    assert_eq!(updated.settings.max_turns, Some(25));
+}
+
+#[tokio::test]
+async fn test_list_goals_includes_settings() {
+    let state = test_state();
+
+    // Create a goal with settings directly via DB
+    state
+        .db
+        .create_goal_space(&conductor::db::queries::CreateGoalSpace {
+            name: "Goal with Settings".into(),
+            description: "Desc".into(),
+            repo_path: "/tmp".into(),
+            settings: conductor::db::queries::GoalSettings {
+                model: Some("opus".to_string()),
+                max_budget_usd: Some(15.0),
+                max_turns: Some(75),
+                allowed_tools: Some(vec!["Bash".to_string(), "Read".to_string()]),
+                permission_mode: None,
+                system_prompt: None,
+            },
+        })
+        .unwrap();
+
+    let app = create_router(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/goals")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = json_body(resp).await;
+    let goals = body.as_array().unwrap();
+    assert_eq!(goals.len(), 1);
+    assert_eq!(goals[0]["settings"]["model"], "opus");
+    assert_eq!(goals[0]["settings"]["max_budget_usd"], 15.0);
+}
+
+#[tokio::test]
+async fn test_get_goal_includes_settings() {
+    let state = test_state();
+    let goal = state
+        .db
+        .create_goal_space(&conductor::db::queries::CreateGoalSpace {
+            name: "Goal with Settings".into(),
+            description: "Desc".into(),
+            repo_path: "/tmp".into(),
+            settings: conductor::db::queries::GoalSettings {
+                model: Some("sonnet".to_string()),
+                max_budget_usd: Some(7.5),
+                max_turns: None,
+                allowed_tools: None,
+                permission_mode: None,
+                system_prompt: None,
+            },
+        })
+        .unwrap();
+
+    let app = create_router(state);
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri(&format!("/api/goals/{}", goal.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = json_body(resp).await;
+    assert_eq!(body["name"], "Goal with Settings");
+    assert_eq!(body["settings"]["model"], "sonnet");
+    assert_eq!(body["settings"]["max_budget_usd"], 7.5);
+}
+
 // ── Task API Tests ──
 
 #[tokio::test]

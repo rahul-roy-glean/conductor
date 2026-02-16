@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::agent::session::BroadcastEvent;
-use crate::db::queries::{CreateGoalSpace, CreateTask, UpdateTask};
+use crate::db::queries::{CreateGoalSpace, CreateTask, GoalSettings, UpdateTask};
 use crate::hooks;
 use crate::server::sse;
 use crate::server::AppState;
@@ -108,14 +108,38 @@ async fn update_goal(
     let description = input.get("description").and_then(|v| v.as_str());
     let status = input.get("status").and_then(|v| v.as_str());
 
-    match state.db.update_goal_space(&id, name, description, status) {
-        Ok(()) => Json(json!({"ok": true})).into_response(),
-        Err(e) => (
+    // Update name, description, status if provided
+    if let Err(e) = state.db.update_goal_space(&id, name, description, status) {
+        return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": e.to_string()})),
         )
-            .into_response(),
+            .into_response();
     }
+
+    // Update settings if provided
+    if let Some(settings_value) = input.get("settings") {
+        match serde_json::from_value(settings_value.clone()) {
+            Ok(settings) => {
+                if let Err(e) = state.db.update_goal_settings(&id, &settings) {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({"error": e.to_string()})),
+                    )
+                        .into_response();
+                }
+            }
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"error": format!("Invalid settings format: {}", e)})),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    Json(json!({"ok": true})).into_response()
 }
 
 async fn delete_goal(
