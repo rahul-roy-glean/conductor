@@ -455,12 +455,34 @@ impl AgentManager {
             .arg("stream-json");
 
         cmd.current_dir(&session.worktree_path);
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
+        // We don't need the nudge output, so set stdout/stderr to null to prevent pipe deadlock
+        cmd.stdout(std::process::Stdio::null());
+        cmd.stderr(std::process::Stdio::null());
 
-        let _child = cmd.spawn().context("Failed to spawn claude resume")?;
+        let child = cmd.spawn().context("Failed to spawn claude resume")?;
 
         tracing::info!("Nudged agent {} with message", agent_run_id);
+
+        // Spawn a task to await the child and log its exit status
+        let agent_run_id_owned = agent_run_id.to_string();
+        tokio::spawn(async move {
+            match child.wait_with_output().await {
+                Ok(output) => {
+                    if output.status.success() {
+                        tracing::debug!("Nudge for agent {} completed successfully", agent_run_id_owned);
+                    } else {
+                        tracing::warn!(
+                            "Nudge for agent {} exited with status: {}",
+                            agent_run_id_owned,
+                            output.status
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("Failed to wait for nudge process for agent {}: {}", agent_run_id_owned, e);
+                }
+            }
+        });
 
         Ok(())
     }
