@@ -8,6 +8,76 @@ use crate::db::Database;
 // ── Goal Space types ──
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GoalSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_budget_usd: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_turns: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_tools: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub permission_mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_prompt: Option<String>,
+}
+
+impl Default for GoalSettings {
+    fn default() -> Self {
+        Self {
+            model: None,
+            max_budget_usd: None,
+            max_turns: None,
+            allowed_tools: None,
+            permission_mode: None,
+            system_prompt: None,
+        }
+    }
+}
+
+impl GoalSettings {
+    /// Get the resolved model value (with fallback to default)
+    pub fn model(&self) -> String {
+        self.model.clone().unwrap_or_else(|| "sonnet".to_string())
+    }
+
+    /// Get the resolved max_budget_usd value (with fallback to default)
+    pub fn max_budget_usd(&self) -> f64 {
+        self.max_budget_usd.unwrap_or(5.0)
+    }
+
+    /// Get the resolved max_turns value (with fallback to default)
+    pub fn max_turns(&self) -> u32 {
+        self.max_turns.unwrap_or(50)
+    }
+
+    /// Get the resolved allowed_tools value (with fallback to default)
+    pub fn allowed_tools(&self) -> Vec<String> {
+        self.allowed_tools.clone().unwrap_or_else(|| {
+            vec![
+                "Bash".to_string(),
+                "Read".to_string(),
+                "Edit".to_string(),
+                "Write".to_string(),
+                "Grep".to_string(),
+                "Glob".to_string(),
+            ]
+        })
+    }
+
+    /// Get the resolved permission_mode value (returns None if not set)
+    pub fn permission_mode(&self) -> Option<String> {
+        self.permission_mode.clone()
+    }
+
+    /// Get the resolved system_prompt value (returns None if not set)
+    pub fn system_prompt(&self) -> Option<String> {
+        self.system_prompt.clone()
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GoalSpace {
     pub id: String,
     pub name: String,
@@ -16,6 +86,8 @@ pub struct GoalSpace {
     pub repo_path: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default)]
+    pub settings: GoalSettings,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -23,6 +95,8 @@ pub struct CreateGoalSpace {
     pub name: String,
     pub description: String,
     pub repo_path: String,
+    #[serde(default)]
+    pub settings: GoalSettings,
 }
 
 // ── Task types ──
@@ -111,13 +185,14 @@ impl Database {
     pub fn create_goal_space(&self, input: &CreateGoalSpace) -> Result<GoalSpace> {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
+        let settings_json = serde_json::to_string(&input.settings)?;
 
         {
             let conn = self.conn();
             conn.execute(
-                "INSERT INTO goal_spaces (id, name, description, status, repo_path, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, 'active', ?4, ?5, ?6)",
-                params![id, input.name, input.description, input.repo_path, now, now],
+                "INSERT INTO goal_spaces (id, name, description, status, repo_path, created_at, updated_at, settings)
+                 VALUES (?1, ?2, ?3, 'active', ?4, ?5, ?6, ?7)",
+                params![id, input.name, input.description, input.repo_path, now, now, settings_json],
             )?;
         }
 
@@ -131,18 +206,21 @@ impl Database {
             repo_path: input.repo_path.clone(),
             created_at: now.clone(),
             updated_at: now,
+            settings: input.settings.clone(),
         })
     }
 
     pub fn list_goal_spaces(&self) -> Result<Vec<GoalSpace>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, status, repo_path, created_at, updated_at
+            "SELECT id, name, description, status, repo_path, created_at, updated_at, settings
              FROM goal_spaces ORDER BY created_at DESC",
         )?;
 
         let goals = stmt
             .query_map([], |row| {
+                let settings_str: String = row.get(7)?;
+                let settings: GoalSettings = serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(GoalSpace {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -151,6 +229,7 @@ impl Database {
                     repo_path: row.get(4)?,
                     created_at: row.get(5)?,
                     updated_at: row.get(6)?,
+                    settings,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -161,12 +240,14 @@ impl Database {
     pub fn get_goal_space(&self, id: &str) -> Result<Option<GoalSpace>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT id, name, description, status, repo_path, created_at, updated_at
+            "SELECT id, name, description, status, repo_path, created_at, updated_at, settings
              FROM goal_spaces WHERE id = ?1",
         )?;
 
         let goal = stmt
             .query_row(params![id], |row| {
+                let settings_str: String = row.get(7)?;
+                let settings: GoalSettings = serde_json::from_str(&settings_str).unwrap_or_default();
                 Ok(GoalSpace {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -175,6 +256,7 @@ impl Database {
                     repo_path: row.get(4)?,
                     created_at: row.get(5)?,
                     updated_at: row.get(6)?,
+                    settings,
                 })
             })
             .optional()?;
@@ -741,6 +823,7 @@ mod tests {
             name: "Test Goal".into(),
             description: "Test description".into(),
             repo_path: "/tmp/test".into(),
+            settings: Default::default(),
         };
         let goal = db.create_goal_space(&input).unwrap();
         assert_eq!(goal.name, "Test Goal");
@@ -760,12 +843,14 @@ mod tests {
             name: "Goal 1".into(),
             description: "Desc 1".into(),
             repo_path: "/tmp/1".into(),
+                settings: Default::default(),
         })
         .unwrap();
         db.create_goal_space(&CreateGoalSpace {
             name: "Goal 2".into(),
             description: "Desc 2".into(),
             repo_path: "/tmp/2".into(),
+                settings: Default::default(),
         })
         .unwrap();
 
@@ -781,6 +866,7 @@ mod tests {
                 name: "Find Me".into(),
                 description: "Desc".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -801,6 +887,7 @@ mod tests {
                 name: "Original".into(),
                 description: "Desc".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -824,6 +911,7 @@ mod tests {
                 name: "To Archive".into(),
                 description: "Desc".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -842,6 +930,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -871,6 +960,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -920,6 +1010,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -949,6 +1040,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -988,6 +1080,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1027,6 +1120,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1086,6 +1180,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1132,6 +1227,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1173,6 +1269,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1209,6 +1306,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1245,6 +1343,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1279,6 +1378,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1312,6 +1412,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1345,6 +1446,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1384,6 +1486,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1424,6 +1527,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
         let task = db
@@ -1473,6 +1577,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1538,6 +1643,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 
@@ -1561,6 +1667,7 @@ mod tests {
                 name: "G".into(),
                 description: "D".into(),
                 repo_path: "/tmp".into(),
+                settings: Default::default(),
             })
             .unwrap();
 

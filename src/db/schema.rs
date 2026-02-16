@@ -73,5 +73,19 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         ",
     )?;
 
+    // Migration: Add settings column to goal_spaces table
+    // This is safe to run multiple times - it will only add the column if it doesn't exist
+    let table_info: Vec<String> = conn
+        .prepare("PRAGMA table_info(goal_spaces)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if !table_info.contains(&"settings".to_string()) {
+        conn.execute(
+            "ALTER TABLE goal_spaces ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'",
+            [],
+        )?;
+    }
+
     Ok(())
 }
