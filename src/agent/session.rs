@@ -369,6 +369,33 @@ impl AgentManager {
                                         });
                                     }
 
+                                    // Try to capture session_id from any event (e.g. assistant events carry it)
+                                    // so nudge works while the agent is still running, not just after Result.
+                                    {
+                                        let needs_session_id = {
+                                            let sessions_r = sessions.read().await;
+                                            sessions_r
+                                                .get(&run_id)
+                                                .map(|s| s.claude_session_id.is_none())
+                                                .unwrap_or(false)
+                                        };
+                                        if needs_session_id {
+                                            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                                                if let Some(sid) = v.get("session_id").and_then(|s| s.as_str()) {
+                                                    if !sid.is_empty() {
+                                                        let mut sessions_w = sessions.write().await;
+                                                        if let Some(session) = sessions_w.get_mut(&run_id) {
+                                                            session.claude_session_id = Some(sid.to_string());
+                                                            if let Err(e) = db.update_agent_run_session_id(&run_id, sid) {
+                                                                tracing::error!("Failed to update agent run session ID for {}: {}", run_id, e);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     // Update cost accumulators
                                     match &parsed {
                                         ParsedEvent::ApiRequest {
@@ -431,9 +458,18 @@ impl AgentManager {
                                             let mut sessions = sessions.write().await;
                                             if let Some(session) = sessions.get_mut(&run_id) {
                                                 session.claude_session_id = Some(session_id.clone());
-                                                session.cost_usd = *cost_usd;
-                                                session.input_tokens = *input_tokens;
-                                                session.output_tokens = *output_tokens;
+                                                // Use the Result event's cost if it's non-zero (authoritative total),
+                                                // otherwise keep the accumulated cost from ApiRequest events to avoid
+                                                // overwriting real cost data with a default 0.
+                                                if *cost_usd > 0.0 {
+                                                    session.cost_usd = *cost_usd;
+                                                }
+                                                if *input_tokens > 0 {
+                                                    session.input_tokens = *input_tokens;
+                                                }
+                                                if *output_tokens > 0 {
+                                                    session.output_tokens = *output_tokens;
+                                                }
                                                 if let Err(e) = db.update_agent_run_session_id(&run_id, session_id) {
                                                     tracing::error!("Failed to update agent run session ID for {}: {}", run_id, e);
                                                 }
@@ -581,48 +617,26 @@ impl AgentManager {
                         let exit_status = session.process.try_wait();
                         match exit_status {
                             Ok(Some(status)) if status.success() => {
-                                // Only mark as done if the agent actually did work
-                                // ($0.00 cost means Claude exited without making any API calls)
-                                if session.cost_usd > 0.0 {
-                                    if let Err(e) = db.update_task(
-                                        &task_id_owned,
-                                        &crate::db::queries::UpdateTask {
-                                            status: Some("done".to_string()),
-                                            title: None,
-                                            description: None,
-                                            priority: None,
-                                            depends_on: None,
-                                            ..Default::default()
-                                        },
-                                    ) {
-                                        tracing::error!(
-                                            "Failed to update task {} to done for agent {}: {}",
-                                            task_id_owned,
-                                            run_id,
-                                            e
-                                        );
-                                    }
-                                    "done"
-                                } else {
-                                    tracing::warn!(
-                                        "Agent {} exited successfully but cost $0.00 — no work was done, marking as failed",
-                                        run_id
+                                // Successful exit code means the agent completed its work.
+                                if let Err(e) = db.update_task(
+                                    &task_id_owned,
+                                    &crate::db::queries::UpdateTask {
+                                        status: Some("done".to_string()),
+                                        title: None,
+                                        description: None,
+                                        priority: None,
+                                        depends_on: None,
+                                        ..Default::default()
+                                    },
+                                ) {
+                                    tracing::error!(
+                                        "Failed to update task {} to done for agent {}: {}",
+                                        task_id_owned,
+                                        run_id,
+                                        e
                                     );
-                                    if let Err(e) = db.update_task(
-                                        &task_id_owned,
-                                        &crate::db::queries::UpdateTask {
-                                            status: Some("failed".to_string()),
-                                            title: None,
-                                            description: None,
-                                            priority: None,
-                                            depends_on: None,
-                                            ..Default::default()
-                                        },
-                                    ) {
-                                        tracing::error!("Failed to update task {} to failed (no work done) for agent {}: {}", task_id_owned, run_id, e);
-                                    }
-                                    "failed"
                                 }
+                                "done"
                             }
                             _ => {
                                 if let Err(e) = db.update_task(
