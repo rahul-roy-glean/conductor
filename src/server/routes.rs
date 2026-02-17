@@ -2,7 +2,7 @@ use axum::{
     extract::{Json, Path, State},
     http::{header, StatusCode, Uri},
     response::IntoResponse,
-    routing::{get, post, put},
+    routing::{get, post},
     Router,
 };
 use rust_embed::Embed;
@@ -32,7 +32,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/goals/{id}/dispatch", post(dispatch_goal))
         .route("/api/goals/{id}/tasks", get(list_tasks).post(create_task))
         // Tasks
-        .route("/api/tasks/{id}", put(update_task))
+        .route("/api/tasks/{id}", get(get_single_task).put(update_task))
         .route("/api/tasks/{id}/retry", post(retry_task))
         .route("/api/tasks/{id}/dispatch", post(dispatch_task))
         .route("/api/goals/{id}/retry-failed", post(retry_all_failed))
@@ -426,6 +426,21 @@ async fn dispatch_goal(
 }
 
 // ── Task Handlers ──
+
+async fn get_single_task(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.get_task(&id) {
+        Ok(Some(task)) => Json(json!(task)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
 
 async fn list_tasks(
     State(state): State<Arc<AppState>>,
