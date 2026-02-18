@@ -613,10 +613,13 @@ impl AgentManager {
                         }
                         "killed"
                     } else {
-                        // Normal exit - check process status
-                        let exit_status = session.process.try_wait();
+                        // Normal exit - wait for process to fully exit before checking status.
+                        // Using try_wait() here would race: stdout closes (EOF) before the
+                        // process exits, so try_wait() returns Ok(None) and we'd incorrectly
+                        // mark the task as failed.
+                        let exit_status = session.process.wait().await;
                         match exit_status {
-                            Ok(Some(status)) if status.success() => {
+                            Ok(status) if status.success() => {
                                 // Successful exit code means the agent completed its work.
                                 if let Err(e) = db.update_task(
                                     &task_id_owned,
@@ -638,7 +641,12 @@ impl AgentManager {
                                 }
                                 "done"
                             }
-                            _ => {
+                            Ok(status) => {
+                                tracing::warn!(
+                                    "Agent {} exited with non-zero status: {:?}",
+                                    run_id,
+                                    status.code()
+                                );
                                 if let Err(e) = db.update_task(
                                     &task_id_owned,
                                     &crate::db::queries::UpdateTask {
@@ -650,7 +658,28 @@ impl AgentManager {
                                         ..Default::default()
                                     },
                                 ) {
-                                    tracing::error!("Failed to update task {} to failed (exit error) for agent {}: {}", task_id_owned, run_id, e);
+                                    tracing::error!("Failed to update task {} to failed (exit code {:?}) for agent {}: {}", task_id_owned, status.code(), run_id, e);
+                                }
+                                "failed"
+                            }
+                            Err(e) => {
+                                tracing::error!(
+                                    "Agent {} failed to get exit status: {}",
+                                    run_id,
+                                    e
+                                );
+                                if let Err(e) = db.update_task(
+                                    &task_id_owned,
+                                    &crate::db::queries::UpdateTask {
+                                        status: Some("failed".to_string()),
+                                        title: None,
+                                        description: None,
+                                        priority: None,
+                                        depends_on: None,
+                                        ..Default::default()
+                                    },
+                                ) {
+                                    tracing::error!("Failed to update task {} to failed (wait error) for agent {}: {}", task_id_owned, run_id, e);
                                 }
                                 "failed"
                             }
