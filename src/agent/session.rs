@@ -250,10 +250,16 @@ impl AgentManager {
         cmd.stderr(std::process::Stdio::piped());
 
         tracing::info!(
-            "Spawning agent {} for task {} in {}",
+            "Spawning agent {} for task {} in {} [model={}, budget={:?}, turns={:?}, tools={:?}, permission={:?}, system_prompt={}]",
             agent_run.id,
             task_id,
-            worktree_path.display()
+            worktree_path.display(),
+            model,
+            max_budget_usd,
+            max_turns,
+            allowed_tools,
+            permission_mode,
+            system_prompt.as_ref().map(|s| if s.len() > 50 { format!("{}...", &s[..50]) } else { s.clone() }).unwrap_or_else(|| "none".to_string()),
         );
 
         let mut child = cmd.spawn().context("Failed to spawn claude process")?;
@@ -750,61 +756,129 @@ impl AgentManager {
         Ok(agent_run)
     }
 
-    /// Send a nudge message to a running agent via --resume
+    /// Send a nudge message to a running agent via --resume.
+    /// Works for both active and completed agents by falling back to the DB.
     pub async fn nudge_agent(&self, agent_run_id: &str, message: &str) -> Result<()> {
-        let sessions = self.sessions.read().await;
-        let session = sessions
-            .get(agent_run_id)
-            .context("Agent not found or not running")?;
+        // Try live sessions first, fall back to DB for completed agents
+        let (session_id, worktree_path) = {
+            let sessions = self.sessions.read().await;
+            if let Some(session) = sessions.get(agent_run_id) {
+                let sid = session
+                    .claude_session_id
+                    .as_ref()
+                    .context("Agent has no Claude session ID yet")?
+                    .clone();
+                (sid, session.worktree_path.clone())
+            } else {
+                drop(sessions);
+                // Agent finished — look up from DB
+                let agent_run = self
+                    .db
+                    .get_agent_run(agent_run_id)?
+                    .context("Agent not found")?;
+                let sid = agent_run
+                    .claude_session_id
+                    .context("Agent has no Claude session ID")?;
+                let wt = agent_run
+                    .worktree_path
+                    .map(PathBuf::from)
+                    .context("Agent has no worktree path")?;
+                (sid, wt)
+            }
+        };
 
-        let session_id = session
-            .claude_session_id
-            .as_ref()
-            .context("Agent has no Claude session ID yet")?;
-
-        // Spawn a new claude process with --resume
+        // Spawn a new claude process with --resume, capturing stdout for event tracking
         let mut cmd = Command::new("claude");
         cmd.arg("-p")
             .arg(message)
             .arg("--resume")
-            .arg(session_id)
+            .arg(&session_id)
             .arg("--output-format")
             .arg("stream-json");
 
-        cmd.current_dir(&session.worktree_path);
-        // We don't need the nudge output, so set stdout/stderr to null to prevent pipe deadlock
-        cmd.stdout(std::process::Stdio::null());
-        cmd.stderr(std::process::Stdio::null());
+        cmd.current_dir(&worktree_path);
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
 
         let mut child = cmd.spawn().context("Failed to spawn claude resume")?;
 
         tracing::info!("Nudged agent {} with message: {}", agent_run_id, message);
 
-        // Spawn a task to await the child and log its exit status
+        let stdout = child.stdout.take().expect("stdout piped");
+        let stderr = child.stderr.take().expect("stderr piped");
+
+        let db = self.db.clone();
+        let event_tx = self.event_tx.clone();
         let agent_run_id_owned = agent_run_id.to_string();
+
+        // Spawn a task to read and process the nudge output
         tokio::spawn(async move {
-            match child.wait().await {
-                Ok(status) => {
-                    if status.success() {
-                        tracing::debug!(
-                            "Nudge for agent {} completed successfully",
-                            agent_run_id_owned
-                        );
-                    } else {
-                        tracing::warn!(
-                            "Nudge for agent {} exited with status: {}",
-                            agent_run_id_owned,
-                            status
-                        );
+            let run_id = agent_run_id_owned;
+
+            // Collect stderr in background
+            let stderr_handle = tokio::spawn(async move {
+                let mut reader = BufReader::new(stderr);
+                let mut output = String::new();
+                let _ = tokio::io::AsyncReadExt::read_to_string(&mut reader, &mut output).await;
+                output
+            });
+
+            // Parse stdout events
+            let mut lines = BufReader::new(stdout).lines();
+            while let Ok(Some(line)) = lines.next_line().await {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                if let Some(parsed) = event_parser::parse_stream_json_line(&line) {
+                    // Store in DB and broadcast via SSE
+                    if let Ok(agent_event) =
+                        event_parser::store_event(&db, &run_id, &parsed, &line)
+                    {
+                        let _ = event_tx.send(BroadcastEvent::AgentEvent {
+                            agent_run_id: run_id.clone(),
+                            event: agent_event,
+                        });
+                    }
+
+                    // Update cost from Result event
+                    if let ParsedEvent::Result {
+                        cost_usd,
+                        input_tokens,
+                        output_tokens,
+                        ..
+                    } = &parsed
+                    {
+                        if *cost_usd > 0.0 {
+                            // Add nudge cost to existing agent run cost
+                            if let Ok(Some(ar)) = db.get_agent_run(&run_id) {
+                                let _ = db.update_agent_run_cost(
+                                    &run_id,
+                                    ar.cost_usd + cost_usd,
+                                    ar.input_tokens + input_tokens,
+                                    ar.output_tokens + output_tokens,
+                                );
+                            }
+                        }
                     }
                 }
-                Err(e) => {
-                    tracing::error!(
-                        "Failed to wait for nudge process for agent {}: {}",
-                        agent_run_id_owned,
-                        e
-                    );
+            }
+
+            // Wait for process to exit
+            match child.wait().await {
+                Ok(status) if status.success() => {
+                    tracing::debug!("Nudge for agent {} completed successfully", run_id);
                 }
+                Ok(status) => {
+                    tracing::warn!("Nudge for agent {} exited with status: {}", run_id, status);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to wait for nudge process for agent {}: {}", run_id, e);
+                }
+            }
+
+            let stderr_output = stderr_handle.await.unwrap_or_default();
+            if !stderr_output.trim().is_empty() {
+                tracing::warn!("Nudge stderr for agent {}: {}", run_id, stderr_output.trim());
             }
         });
 
