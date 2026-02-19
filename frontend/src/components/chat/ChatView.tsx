@@ -33,11 +33,13 @@ export default function ChatView({ goalId, onTasksChanged }: ChatViewProps) {
   }, [loadMessages]);
 
   // Reload messages when streaming completes
+  const prevIsDoneRef = useRef(false);
   useEffect(() => {
-    if (isDone) {
+    if (isDone && !prevIsDoneRef.current) {
       loadMessages();
-      setSending(false);
+      setSending(false); // eslint-disable-line react-hooks/set-state-in-effect
     }
+    prevIsDoneRef.current = !!isDone;
   }, [isDone, loadMessages]);
 
   // Auto-scroll on new messages or streaming content
