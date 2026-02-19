@@ -211,11 +211,20 @@ export default function FleetView() {
               className="flex items-center gap-2 mb-2 px-2 py-1.5 w-full rounded hover:bg-card transition-colors group"
             >
               {isCollapsed ? (
-                <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                <ChevronRight
+                  size={14}
+                  className="text-muted-foreground shrink-0"
+                />
               ) : (
-                <ChevronDown size={14} className="text-muted-foreground shrink-0" />
+                <ChevronDown
+                  size={14}
+                  className="text-muted-foreground shrink-0"
+                />
               )}
-              <FolderGit2 size={14} className="text-muted-foreground shrink-0" />
+              <FolderGit2
+                size={14}
+                className="text-muted-foreground shrink-0"
+              />
               <span className="text-sm font-mono text-foreground truncate">
                 {repoPath}
               </span>
@@ -337,7 +346,9 @@ export default function FleetView() {
       {mergedAgents.length === 0 && (
         <div className="text-center py-16">
           <Monitor size={40} className="mx-auto text-border mb-3" />
-          <p className="text-muted-foreground font-medium mb-1">No agents running</p>
+          <p className="text-muted-foreground font-medium mb-1">
+            No agents running
+          </p>
           <p className="text-muted-foreground/60 text-sm">
             Create a goal and dispatch tasks to get started
           </p>

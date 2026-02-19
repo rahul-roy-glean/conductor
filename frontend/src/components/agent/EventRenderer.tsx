@@ -23,8 +23,13 @@ export default function EventRenderer({ event }: EventRendererProps) {
     case "tool_result":
       return (
         <div className="flex items-start gap-3 py-1.5">
-          <FileText size={14} className="text-muted-foreground mt-0.5 shrink-0" />
-          <span className="text-xs text-muted-foreground truncate">{event.summary}</span>
+          <FileText
+            size={14}
+            className="text-muted-foreground mt-0.5 shrink-0"
+          />
+          <span className="text-xs text-muted-foreground truncate">
+            {event.summary}
+          </span>
         </div>
       );
     case "cost_update":

@@ -122,7 +122,10 @@ export default function ChatView({ goalId, onTasksChanged }: ChatViewProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Messages area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+      >
         {allMessages.length === 0 && !streamingContent && (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <p className="text-sm">

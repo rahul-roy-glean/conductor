@@ -43,16 +43,12 @@ export default function TaskProposal({
 
   const handleToggle = (index: number) => {
     setTasks((prev) =>
-      prev.map((t, i) =>
-        i === index ? { ...t, included: !t.included } : t,
-      ),
+      prev.map((t, i) => (i === index ? { ...t, included: !t.included } : t)),
     );
   };
 
   const handleTitleChange = (index: number, title: string) => {
-    setTasks((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, title } : t)),
-    );
+    setTasks((prev) => prev.map((t, i) => (i === index ? { ...t, title } : t)));
   };
 
   const handleDescChange = (index: number, description: string) => {
@@ -135,9 +131,7 @@ export default function TaskProposal({
         <div className="flex gap-2">
           <Button
             onClick={handleApprove}
-            disabled={
-              approving || tasks.filter((t) => t.included).length === 0
-            }
+            disabled={approving || tasks.filter((t) => t.included).length === 0}
             className="bg-green-700 hover:bg-green-600 text-white"
           >
             {approving ? (

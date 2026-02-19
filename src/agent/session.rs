@@ -837,8 +837,7 @@ impl AgentManager {
                 }
                 if let Some(parsed) = event_parser::parse_stream_json_line(&line) {
                     // Store in DB and broadcast via SSE
-                    if let Ok(agent_event) =
-                        event_parser::store_event(&db, &run_id, &parsed, &line)
+                    if let Ok(agent_event) = event_parser::store_event(&db, &run_id, &parsed, &line)
                     {
                         let _ = event_tx.send(BroadcastEvent::AgentEvent {
                             agent_run_id: run_id.clone(),
@@ -878,13 +877,21 @@ impl AgentManager {
                     tracing::warn!("Nudge for agent {} exited with status: {}", run_id, status);
                 }
                 Err(e) => {
-                    tracing::error!("Failed to wait for nudge process for agent {}: {}", run_id, e);
+                    tracing::error!(
+                        "Failed to wait for nudge process for agent {}: {}",
+                        run_id,
+                        e
+                    );
                 }
             }
 
             let stderr_output = stderr_handle.await.unwrap_or_default();
             if !stderr_output.trim().is_empty() {
-                tracing::warn!("Nudge stderr for agent {}: {}", run_id, stderr_output.trim());
+                tracing::warn!(
+                    "Nudge stderr for agent {}: {}",
+                    run_id,
+                    stderr_output.trim()
+                );
             }
         });
 

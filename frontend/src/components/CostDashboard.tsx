@@ -73,7 +73,11 @@ export default function CostDashboard() {
                   ${cost.toFixed(2)}
                 </span>
               </div>
-              <div className={cn("h-3 bg-card rounded-full border border-border overflow-hidden")}>
+              <div
+                className={cn(
+                  "h-3 bg-card rounded-full border border-border overflow-hidden",
+                )}
+              >
                 <div
                   className="h-full bg-blue-600 rounded-full transition-all"
                   style={{ width: `${(cost / maxGoalCost) * 100}%` }}
@@ -82,7 +86,9 @@ export default function CostDashboard() {
             </div>
           ))}
           {goalCosts.length === 0 && (
-            <p className="text-muted-foreground text-sm">No cost data available</p>
+            <p className="text-muted-foreground text-sm">
+              No cost data available
+            </p>
           )}
         </div>
       </div>

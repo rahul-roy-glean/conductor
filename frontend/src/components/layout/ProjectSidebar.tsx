@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { listProjects, listGoals, createGoal, createProject } from "@/api/client";
+import {
+  listProjects,
+  listGoals,
+  createGoal,
+  createProject,
+} from "@/api/client";
 import type { Project, GoalSpace } from "@/types";
 import { useAgentEvents } from "@/hooks/useAgentEvents";
 import {
@@ -35,7 +40,9 @@ export default function ProjectSidebar() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [goals, setGoals] = useState<GoalSpace[]>([]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [createGoalProject, setCreateGoalProject] = useState<Project | null>(null);
+  const [createGoalProject, setCreateGoalProject] = useState<Project | null>(
+    null,
+  );
   const [showAddProject, setShowAddProject] = useState(false);
   const { agents } = useAgentEvents();
   const navigate = useNavigate();
@@ -55,8 +62,12 @@ export default function ProjectSidebar() {
   const [settingsProject, setSettingsProject] = useState<Project | null>(null);
 
   const loadData = () => {
-    listProjects().then(setProjects).catch(() => {});
-    listGoals().then(setGoals).catch(() => {});
+    listProjects()
+      .then(setProjects)
+      .catch(() => {});
+    listGoals()
+      .then(setGoals)
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -351,10 +362,7 @@ export default function ProjectSidebar() {
 
       {/* Add Project Dialog */}
       {showAddProject && (
-        <Dialog
-          open
-          onOpenChange={(open) => !open && setShowAddProject(false)}
-        >
+        <Dialog open onOpenChange={(open) => !open && setShowAddProject(false)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Project</DialogTitle>
@@ -371,18 +379,13 @@ export default function ProjectSidebar() {
               placeholder="Display name"
             />
             <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setShowAddProject(false)}
-              >
+              <Button variant="ghost" onClick={() => setShowAddProject(false)}>
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateProject}
                 disabled={
-                  creatingProject ||
-                  !projectPath.trim() ||
-                  !projectName.trim()
+                  creatingProject || !projectPath.trim() || !projectName.trim()
                 }
               >
                 {creatingProject && (

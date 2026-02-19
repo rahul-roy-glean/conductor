@@ -38,7 +38,10 @@ export default function ToolCallEvent({ event }: ToolCallEventProps) {
     ? Object.entries(params)
         .slice(0, 3)
         .map(([k, v]) => {
-          const val = typeof v === "string" ? v.slice(0, 60) : JSON.stringify(v).slice(0, 60);
+          const val =
+            typeof v === "string"
+              ? v.slice(0, 60)
+              : JSON.stringify(v).slice(0, 60);
           return `${k}: ${val}`;
         })
         .join(", ")

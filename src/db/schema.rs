@@ -123,10 +123,7 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     if !gs_info.contains(&"project_id".to_string()) {
-        conn.execute(
-            "ALTER TABLE goal_spaces ADD COLUMN project_id TEXT",
-            [],
-        )?;
+        conn.execute("ALTER TABLE goal_spaces ADD COLUMN project_id TEXT", [])?;
 
         // Auto-populate projects from existing goal_spaces.repo_path DISTINCT values
         // and backfill project_id

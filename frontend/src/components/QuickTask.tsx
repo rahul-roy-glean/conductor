@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listProjects, createGoal, createTask, dispatchGoal } from "@/api/client";
+import {
+  listProjects,
+  createGoal,
+  createTask,
+  dispatchGoal,
+} from "@/api/client";
 import type { Project } from "@/types";
 import {
   Dialog,
@@ -92,9 +97,7 @@ export default function QuickTask({ open, onOpenChange }: QuickTaskProps) {
                   {p.display_name}
                 </option>
               ))}
-              {projects.length === 0 && (
-                <option value="">No projects</option>
-              )}
+              {projects.length === 0 && <option value="">No projects</option>}
             </select>
           </div>
           <div>

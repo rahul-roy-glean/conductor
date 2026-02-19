@@ -65,11 +65,16 @@ export default function AgentDetail() {
             <h1 className="text-2xl font-bold text-foreground font-mono">
               {agent.branch ?? agent.id.slice(0, 8)}
             </h1>
-            <Badge variant="outline" className={statusBadge[agent.status] ?? ""}>
+            <Badge
+              variant="outline"
+              className={statusBadge[agent.status] ?? ""}
+            >
               {agent.status}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground font-mono mt-1">{agent.id}</p>
+          <p className="text-xs text-muted-foreground font-mono mt-1">
+            {agent.id}
+          </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             Model: {agent.model}
             {agent.worktree_path && <> &middot; {agent.worktree_path}</>}
@@ -106,13 +111,15 @@ export default function AgentDetail() {
 
       {/* Rich event timeline */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-3">
-          Activity
-        </h2>
-        <ScrollArea className={cn("max-h-[600px]", allEvents.length > 0 && "h-[600px]")}>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Activity</h2>
+        <ScrollArea
+          className={cn("max-h-[600px]", allEvents.length > 0 && "h-[600px]")}
+        >
           <div ref={scrollRef} className="space-y-0.5 px-1">
             {allEvents.length === 0 && (
-              <p className="text-muted-foreground text-sm py-4">No events yet</p>
+              <p className="text-muted-foreground text-sm py-4">
+                No events yet
+              </p>
             )}
             {allEvents.map((event) => (
               <div key={event.id} className="flex gap-3">

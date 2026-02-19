@@ -36,7 +36,11 @@ export default function ErrorEvent({ event }: ErrorEventProps) {
           <span className="text-sm text-red-300 flex-1">{event.summary}</span>
           {stackTrace && (
             <span className="text-red-400 mt-0.5 shrink-0">
-              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              {expanded ? (
+                <ChevronDown size={14} />
+              ) : (
+                <ChevronRight size={14} />
+              )}
             </span>
           )}
         </button>

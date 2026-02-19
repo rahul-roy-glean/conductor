@@ -52,10 +52,15 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             post(hooks::handler::handle_subagent_stop_hook),
         )
         // Projects
-        .route("/api/projects", get(list_projects_handler).post(create_project_handler))
+        .route(
+            "/api/projects",
+            get(list_projects_handler).post(create_project_handler),
+        )
         .route(
             "/api/projects/{id}",
-            get(get_project_handler).put(update_project_handler).delete(delete_project_handler),
+            get(get_project_handler)
+                .put(update_project_handler)
+                .delete(delete_project_handler),
         )
         .route("/api/projects/{id}/goals", get(list_project_goals_handler))
         // Goal Chat

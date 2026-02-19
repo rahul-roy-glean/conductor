@@ -45,10 +45,7 @@ export default function NudgeDialog({ agentId, onClose }: Props) {
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSend}
-            disabled={sending || !message.trim()}
-          >
+          <Button onClick={handleSend} disabled={sending || !message.trim()}>
             {sending ? "Sending..." : "Send"}
           </Button>
         </div>

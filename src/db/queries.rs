@@ -1114,6 +1114,7 @@ impl Database {
         Ok(messages)
     }
 
+    #[allow(dead_code)]
     pub fn delete_goal_messages(&self, goal_space_id: &str) -> Result<()> {
         let conn = self.conn();
         conn.execute(

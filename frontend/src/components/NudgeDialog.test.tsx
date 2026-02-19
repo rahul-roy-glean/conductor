@@ -93,7 +93,9 @@ describe("NudgeDialog", () => {
     render(<NudgeDialog agentId="agent-1" onClose={onClose} />);
 
     // Radix Dialog renders the overlay via a portal, so query from document
-    const overlay = document.querySelector("[data-state='open'][role='dialog']");
+    const overlay = document.querySelector(
+      "[data-state='open'][role='dialog']",
+    );
     expect(overlay).toBeInTheDocument();
 
     // Click outside the dialog content by pressing Escape (Radix Dialog closes on Escape)

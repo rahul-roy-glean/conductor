@@ -91,7 +91,9 @@ export default function AgentCard({
         </div>
 
         {lastActivity && (
-          <p className="text-xs text-muted-foreground truncate mb-3">{lastActivity}</p>
+          <p className="text-xs text-muted-foreground truncate mb-3">
+            {lastActivity}
+          </p>
         )}
 
         <div className="flex gap-2">

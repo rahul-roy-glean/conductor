@@ -237,9 +237,7 @@ function TaskDAG({
                 className="fill-gray-200 text-[11px]"
                 fontFamily="monospace"
               >
-                {t.title.length > 16
-                  ? t.title.slice(0, 15) + "..."
-                  : t.title}
+                {t.title.length > 16 ? t.title.slice(0, 15) + "..." : t.title}
               </text>
             </g>
           );
@@ -504,14 +502,13 @@ function GoalDetail() {
   };
 
   // Filter agents for this goal
-  const goalAgents = [...agents.values()].filter(
-    (a) => a.goal_space_id === id,
-  );
+  const goalAgents = [...agents.values()].filter((a) => a.goal_space_id === id);
   const activeAgentCount = goalAgents.filter(
     (a) => a.status === "running" || a.status === "spawning",
   ).length;
 
-  if (!goal) return <p className="text-muted-foreground p-8">Loading goal...</p>;
+  if (!goal)
+    return <p className="text-muted-foreground p-8">Loading goal...</p>;
 
   return (
     <div className="flex flex-col h-full">
@@ -545,7 +542,9 @@ function GoalDetail() {
         ) : (
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">{goal.name}</h1>
+              <h1 className="text-2xl font-bold text-foreground">
+                {goal.name}
+              </h1>
               <p className="text-muted-foreground mt-1">{goal.description}</p>
               <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                 <span className="font-mono">{goal.repo_path}</span>
@@ -569,33 +568,51 @@ function GoalDetail() {
                   goal.settings.system_prompt) && (
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {goal.settings.model && (
-                      <Badge variant="outline" className="bg-blue-900/30 text-blue-300 border-blue-800">
+                      <Badge
+                        variant="outline"
+                        className="bg-blue-900/30 text-blue-300 border-blue-800"
+                      >
                         Model: {goal.settings.model}
                       </Badge>
                     )}
                     {goal.settings.max_budget_usd !== undefined && (
-                      <Badge variant="outline" className="bg-green-900/30 text-green-300 border-green-800">
+                      <Badge
+                        variant="outline"
+                        className="bg-green-900/30 text-green-300 border-green-800"
+                      >
                         Budget: ${goal.settings.max_budget_usd}
                       </Badge>
                     )}
                     {goal.settings.max_turns !== undefined && (
-                      <Badge variant="outline" className="bg-purple-900/30 text-purple-300 border-purple-800">
+                      <Badge
+                        variant="outline"
+                        className="bg-purple-900/30 text-purple-300 border-purple-800"
+                      >
                         Turns: {goal.settings.max_turns}
                       </Badge>
                     )}
                     {goal.settings.permission_mode && (
-                      <Badge variant="outline" className="bg-orange-900/30 text-orange-300 border-orange-800">
+                      <Badge
+                        variant="outline"
+                        className="bg-orange-900/30 text-orange-300 border-orange-800"
+                      >
                         Mode: {goal.settings.permission_mode}
                       </Badge>
                     )}
                     {goal.settings.allowed_tools &&
                       goal.settings.allowed_tools.length > 0 && (
-                        <Badge variant="outline" className="bg-cyan-900/30 text-cyan-300 border-cyan-800">
+                        <Badge
+                          variant="outline"
+                          className="bg-cyan-900/30 text-cyan-300 border-cyan-800"
+                        >
                           Tools: {goal.settings.allowed_tools.length}
                         </Badge>
                       )}
                     {goal.settings.system_prompt && (
-                      <Badge variant="outline" className="bg-pink-900/30 text-pink-300 border-pink-800">
+                      <Badge
+                        variant="outline"
+                        className="bg-pink-900/30 text-pink-300 border-pink-800"
+                      >
                         Custom prompt
                       </Badge>
                     )}
@@ -603,10 +620,7 @@ function GoalDetail() {
                 )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <Badge
-                variant="outline"
-                className={statusBadge[goal.status]}
-              >
+              <Badge variant="outline" className={statusBadge[goal.status]}>
                 {goal.status}
               </Badge>
               {/* Status controls */}
@@ -692,7 +706,9 @@ function GoalDetail() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-muted-foreground mb-1">Model</label>
+                <label className="block text-xs text-muted-foreground mb-1">
+                  Model
+                </label>
                 <Input
                   type="text"
                   list="model-options"
@@ -706,7 +722,9 @@ function GoalDetail() {
                   placeholder="Default (or enter custom model ID)"
                 />
                 <datalist id="model-options">
-                  <option value="claude-opus-4-6[1m]">Opus 4.6 (1M context)</option>
+                  <option value="claude-opus-4-6[1m]">
+                    Opus 4.6 (1M context)
+                  </option>
                   <option value="claude-opus-4-6">Opus 4.6</option>
                   <option value="claude-sonnet-4-5-20250929">Sonnet 4.5</option>
                   <option value="claude-3-5-haiku-20241022">Haiku 3.5</option>
@@ -716,7 +734,9 @@ function GoalDetail() {
                 </datalist>
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1">Max Budget (USD)</label>
+                <label className="block text-xs text-muted-foreground mb-1">
+                  Max Budget (USD)
+                </label>
                 <Input
                   type="number"
                   step="0.01"
@@ -725,14 +745,18 @@ function GoalDetail() {
                   onChange={(e) =>
                     setSettingsForm({
                       ...settingsForm,
-                      max_budget_usd: e.target.value ? parseFloat(e.target.value) : undefined,
+                      max_budget_usd: e.target.value
+                        ? parseFloat(e.target.value)
+                        : undefined,
                     })
                   }
                   placeholder="No limit"
                 />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1">Max Turns</label>
+                <label className="block text-xs text-muted-foreground mb-1">
+                  Max Turns
+                </label>
                 <Input
                   type="number"
                   min="1"
@@ -740,14 +764,18 @@ function GoalDetail() {
                   onChange={(e) =>
                     setSettingsForm({
                       ...settingsForm,
-                      max_turns: e.target.value ? parseInt(e.target.value) : undefined,
+                      max_turns: e.target.value
+                        ? parseInt(e.target.value)
+                        : undefined,
                     })
                   }
                   placeholder="No limit"
                 />
               </div>
               <div>
-                <label className="block text-xs text-muted-foreground mb-1">Permission Mode</label>
+                <label className="block text-xs text-muted-foreground mb-1">
+                  Permission Mode
+                </label>
                 <select
                   value={settingsForm.permission_mode || ""}
                   onChange={(e) =>
@@ -767,13 +795,30 @@ function GoalDetail() {
             </div>
 
             <div>
-              <label className="block text-xs text-muted-foreground mb-2">Allowed Tools</label>
+              <label className="block text-xs text-muted-foreground mb-2">
+                Allowed Tools
+              </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {["Bash", "Read", "Edit", "Write", "Grep", "Glob", "WebFetch", "WebSearch", "NotebookEdit"].map((tool) => (
-                  <label key={tool} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                {[
+                  "Bash",
+                  "Read",
+                  "Edit",
+                  "Write",
+                  "Grep",
+                  "Glob",
+                  "WebFetch",
+                  "WebSearch",
+                  "NotebookEdit",
+                ].map((tool) => (
+                  <label
+                    key={tool}
+                    className="flex items-center gap-2 text-sm text-foreground cursor-pointer"
+                  >
                     <input
                       type="checkbox"
-                      checked={(settingsForm.allowed_tools || []).includes(tool)}
+                      checked={(settingsForm.allowed_tools || []).includes(
+                        tool,
+                      )}
                       onChange={() => handleToolToggle(tool)}
                       className="rounded border-input bg-background text-primary focus:ring-ring focus:ring-offset-background"
                     />
@@ -784,7 +829,9 @@ function GoalDetail() {
             </div>
 
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">System Prompt (Additional Instructions)</label>
+              <label className="block text-xs text-muted-foreground mb-1">
+                System Prompt (Additional Instructions)
+              </label>
               <Textarea
                 value={settingsForm.system_prompt || ""}
                 onChange={(e) =>
@@ -800,7 +847,9 @@ function GoalDetail() {
 
             <div className="flex gap-2 pt-2">
               <Button onClick={handleSaveSettings} disabled={savingSettings}>
-                {savingSettings && <Loader2 size={14} className="animate-spin" />}
+                {savingSettings && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
                 Save Settings
               </Button>
               <Button variant="ghost" onClick={() => setShowSettings(false)}>
@@ -812,7 +861,11 @@ function GoalDetail() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex-1 flex flex-col min-h-0"
+      >
         <TabsList className="shrink-0">
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="tasks">
@@ -839,7 +892,10 @@ function GoalDetail() {
         </TabsContent>
 
         {/* Tasks Tab */}
-        <TabsContent value="tasks" className="flex-1 overflow-y-auto space-y-4 py-4">
+        <TabsContent
+          value="tasks"
+          className="flex-1 overflow-y-auto space-y-4 py-4"
+        >
           {/* Operation progress */}
           {activeOp && operationInProgress && (
             <OperationProgressPanel
@@ -854,7 +910,9 @@ function GoalDetail() {
               <AlertTriangle size={16} className="text-red-400 shrink-0" />
               <span className="text-sm text-red-300">
                 {tasks.filter((t) => t.status === "failed").length} task
-                {tasks.filter((t) => t.status === "failed").length !== 1 ? "s" : ""}{" "}
+                {tasks.filter((t) => t.status === "failed").length !== 1
+                  ? "s"
+                  : ""}{" "}
                 failed.
               </span>
               <Button
@@ -882,7 +940,8 @@ function GoalDetail() {
               onClick={handleDecompose}
               disabled={operationInProgress}
             >
-              {operationInProgress && activeOp?.operation_type === "decompose" ? (
+              {operationInProgress &&
+              activeOp?.operation_type === "decompose" ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Sparkles size={14} />
@@ -894,7 +953,8 @@ function GoalDetail() {
               onClick={handleDispatch}
               disabled={operationInProgress}
             >
-              {operationInProgress && activeOp?.operation_type === "dispatch" ? (
+              {operationInProgress &&
+              activeOp?.operation_type === "dispatch" ? (
                 <Loader2 size={14} className="animate-spin" />
               ) : (
                 <Play size={14} />
@@ -955,12 +1015,18 @@ function GoalDetail() {
                 {selectedDagTask.description || "No description"}
               </p>
               <div className="flex gap-2">
-                {(selectedDagTask.status === "pending" || selectedDagTask.status === "failed") && (
+                {(selectedDagTask.status === "pending" ||
+                  selectedDagTask.status === "failed") && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="bg-green-700 hover:bg-green-600 text-green-100 border-green-700"
-                    onClick={() => handleDispatchTask(selectedDagTask.id, selectedDagTask.title)}
+                    onClick={() =>
+                      handleDispatchTask(
+                        selectedDagTask.id,
+                        selectedDagTask.title,
+                      )
+                    }
                     disabled={operationInProgress}
                   >
                     <Play size={11} /> Dispatch
@@ -981,7 +1047,9 @@ function GoalDetail() {
           )}
 
           <div>
-            <h2 className="text-lg font-semibold text-foreground mb-3">Tasks</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Tasks
+            </h2>
             <div className="space-y-2">
               {tasks.map((task) => (
                 <Card
@@ -998,7 +1066,9 @@ function GoalDetail() {
                     )}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-foreground truncate">{task.title}</p>
+                    <p className="text-sm text-foreground truncate">
+                      {task.title}
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {task.description}
                     </p>
@@ -1013,12 +1083,15 @@ function GoalDetail() {
                     <span
                       className={cn(
                         "text-xs",
-                        task.status === "failed" ? "text-red-400" : "text-muted-foreground",
+                        task.status === "failed"
+                          ? "text-red-400"
+                          : "text-muted-foreground",
                       )}
                     >
                       {task.status}
                     </span>
-                    {(task.status === "pending" || task.status === "failed") && (
+                    {(task.status === "pending" ||
+                      task.status === "failed") && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1046,7 +1119,8 @@ function GoalDetail() {
               ))}
               {tasks.length === 0 && (
                 <p className="text-muted-foreground text-sm">
-                  No tasks yet. Use the Chat tab to describe your goal, or add tasks manually.
+                  No tasks yet. Use the Chat tab to describe your goal, or add
+                  tasks manually.
                 </p>
               )}
             </div>
@@ -1082,7 +1156,8 @@ function GoalDetail() {
                     <DollarSign size={10} />
                     {agent.cost_usd.toFixed(2)}
                   </span>
-                  {(agent.status === "running" || agent.status === "stalled") && (
+                  {(agent.status === "running" ||
+                    agent.status === "stalled") && (
                     <>
                       <Button
                         variant="ghost"
