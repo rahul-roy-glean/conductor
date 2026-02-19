@@ -101,5 +101,93 @@ pub fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // Migration: Add projects table
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            path TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        ",
+    )?;
+
+    // Migration: Add project_id column to goal_spaces
+    // Re-read table_info since we may have altered it above
+    let gs_info: Vec<String> = conn
+        .prepare("PRAGMA table_info(goal_spaces)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if !gs_info.contains(&"project_id".to_string()) {
+        conn.execute(
+            "ALTER TABLE goal_spaces ADD COLUMN project_id TEXT",
+            [],
+        )?;
+
+        // Auto-populate projects from existing goal_spaces.repo_path DISTINCT values
+        // and backfill project_id
+        let distinct_paths: Vec<String> = conn
+            .prepare("SELECT DISTINCT repo_path FROM goal_spaces")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        for path in &distinct_paths {
+            let project_id = uuid::Uuid::new_v4().to_string();
+            let now = chrono::Utc::now().to_rfc3339();
+            // Use the last path component as display_name
+            let display_name = std::path::Path::new(path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(path)
+                .to_string();
+
+            conn.execute(
+                "INSERT OR IGNORE INTO projects (id, path, display_name, sort_order, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, 0, ?4, ?5)",
+                rusqlite::params![project_id, path, display_name, now, now],
+            )?;
+
+            // Backfill project_id on goal_spaces
+            conn.execute(
+                "UPDATE goal_spaces SET project_id = ?1 WHERE repo_path = ?2 AND project_id IS NULL",
+                rusqlite::params![project_id, path],
+            )?;
+        }
+    }
+
+    // Migration: Add settings column to projects table
+    let proj_info: Vec<String> = conn
+        .prepare("PRAGMA table_info(projects)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if !proj_info.is_empty() && !proj_info.contains(&"settings".to_string()) {
+        conn.execute(
+            "ALTER TABLE projects ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'",
+            [],
+        )?;
+    }
+
+    // Migration: Add goal_messages table
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS goal_messages (
+            id TEXT PRIMARY KEY,
+            goal_space_id TEXT NOT NULL REFERENCES goal_spaces(id),
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            message_type TEXT NOT NULL DEFAULT 'text',
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_goal_messages_goal ON goal_messages(goal_space_id);
+        ",
+    )?;
+
     Ok(())
 }

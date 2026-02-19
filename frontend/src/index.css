@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+@font-face {
+  font-family: "Geist";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Mux-inspired dark palette — neutral with clear surface hierarchy */
+  --color-background: #0f1117;                     /* main content bg — near-black */
+  --color-foreground: #e4e4e7;                     /* primary text */
+  --color-card: #18181b;                           /* cards, panels */
+  --color-card-foreground: #e4e4e7;
+  --color-sidebar: #0a0a0c;                        /* sidebar bg — darkest surface */
+  --color-sidebar-foreground: #a1a1aa;
+  --color-popover: #18181b;
+  --color-popover-foreground: #e4e4e7;
+  --color-border: #27272a;                         /* subtle borders */
+  --color-input: #3f3f46;                          /* input borders — more visible */
+  --color-ring: #3b82f6;                           /* focus ring */
+  --color-primary: #3b82f6;                        /* primary action */
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #27272a;
+  --color-secondary-foreground: #e4e4e7;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-muted: #27272a;                          /* muted surfaces, hover states */
+  --color-muted-foreground: #71717a;               /* secondary text */
+  --color-accent: #1c1c20;                         /* subtle highlight on hover */
+  --color-accent-foreground: #e4e4e7;
+  --radius: 0.5rem;
+
+  /* Status colors */
+  --color-status-running: #22c55e;
+  --color-status-failed: #ef4444;
+  --color-status-stalled: #f59e0b;
+  --color-status-pending: #71717a;
+  --color-status-done: #71717a;
+  --color-status-spawning: #3b82f6;
+}
+
+body {
+  @apply bg-background text-foreground;
+}

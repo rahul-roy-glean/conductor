@@ -6,6 +6,7 @@ import {
   useRef,
   useEffect,
 } from "react";
+import { cn } from "@/lib/utils";
 
 type ToastType = "success" | "error" | "info";
 
@@ -59,9 +60,11 @@ function ToastItem({
 
   return (
     <div
-      className={`bg-gray-800 border border-gray-700 border-l-4 ${accentColors[toast.type]} rounded px-4 py-3 text-sm text-gray-100 shadow-lg transition-all duration-300 ${
-        show ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-      }`}
+      className={cn(
+        "bg-card border border-border border-l-4 rounded px-4 py-3 text-sm text-foreground shadow-lg transition-all duration-300",
+        accentColors[toast.type],
+        show ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8",
+      )}
     >
       {toast.message}
     </div>

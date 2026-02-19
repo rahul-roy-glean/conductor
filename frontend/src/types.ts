@@ -89,3 +89,23 @@ export interface OperationStarted {
   status: "running";
   message?: string;
 }
+
+export interface Project {
+  id: string;
+  path: string;
+  display_name: string;
+  sort_order: number;
+  settings: GoalSettings;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GoalMessage {
+  id: string;
+  goal_space_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  message_type: "text" | "task_proposal";
+  metadata_json: string;
+  created_at: string;
+}

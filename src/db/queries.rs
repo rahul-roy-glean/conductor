@@ -181,6 +181,68 @@ pub struct AgentEvent {
     pub created_at: String,
 }
 
+// ── Project types ──
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Project {
+    pub id: String,
+    pub path: String,
+    pub display_name: String,
+    pub sort_order: i32,
+    #[serde(default)]
+    pub settings: GoalSettings,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct CreateProject {
+    pub path: String,
+    pub display_name: String,
+    #[serde(default)]
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct UpdateProject {
+    pub path: Option<String>,
+    pub display_name: Option<String>,
+    pub sort_order: Option<i32>,
+    pub settings: Option<GoalSettings>,
+}
+
+// ── Goal Message types ──
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GoalMessage {
+    pub id: String,
+    pub goal_space_id: String,
+    pub role: String,
+    pub content: String,
+    pub message_type: String,
+    pub metadata_json: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct CreateGoalMessage {
+    pub goal_space_id: String,
+    pub role: String,
+    pub content: String,
+    #[serde(default = "default_message_type")]
+    pub message_type: String,
+    #[serde(default = "default_metadata_json")]
+    pub metadata_json: String,
+}
+
+fn default_message_type() -> String {
+    "text".to_string()
+}
+
+fn default_metadata_json() -> String {
+    "{}".to_string()
+}
+
 // ── Stats ──
 
 #[derive(Debug, serde::Serialize)]
@@ -856,6 +918,209 @@ impl Database {
             tasks_total,
             goals_active,
         })
+    }
+
+    // ── Project Queries ──
+
+    pub fn create_project(&self, input: &CreateProject) -> Result<Project> {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+        let settings_json = serde_json::to_string(&GoalSettings::default())?;
+
+        let conn = self.conn();
+        conn.execute(
+            "INSERT INTO projects (id, path, display_name, sort_order, settings, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, input.path, input.display_name, input.sort_order, settings_json, now, now],
+        )?;
+
+        Ok(Project {
+            id,
+            path: input.path.clone(),
+            display_name: input.display_name.clone(),
+            sort_order: input.sort_order,
+            settings: GoalSettings::default(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+
+    pub fn list_projects(&self) -> Result<Vec<Project>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, path, display_name, sort_order, settings, created_at, updated_at
+             FROM projects ORDER BY sort_order ASC, created_at ASC",
+        )?;
+
+        let projects = stmt
+            .query_map([], |row| {
+                let settings_str: String = row.get(4)?;
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
+                Ok(Project {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    display_name: row.get(2)?,
+                    sort_order: row.get(3)?,
+                    settings,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(projects)
+    }
+
+    pub fn get_project(&self, id: &str) -> Result<Option<Project>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, path, display_name, sort_order, settings, created_at, updated_at
+             FROM projects WHERE id = ?1",
+        )?;
+
+        let project = stmt
+            .query_row(params![id], |row| {
+                let settings_str: String = row.get(4)?;
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
+                Ok(Project {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    display_name: row.get(2)?,
+                    sort_order: row.get(3)?,
+                    settings,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })
+            .optional()?;
+
+        Ok(project)
+    }
+
+    pub fn update_project(&self, id: &str, input: &UpdateProject) -> Result<()> {
+        let conn = self.conn();
+        let now = Utc::now().to_rfc3339();
+
+        if let Some(ref path) = input.path {
+            conn.execute(
+                "UPDATE projects SET path = ?1, updated_at = ?2 WHERE id = ?3",
+                params![path, now, id],
+            )?;
+        }
+        if let Some(ref display_name) = input.display_name {
+            conn.execute(
+                "UPDATE projects SET display_name = ?1, updated_at = ?2 WHERE id = ?3",
+                params![display_name, now, id],
+            )?;
+        }
+        if let Some(sort_order) = input.sort_order {
+            conn.execute(
+                "UPDATE projects SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
+                params![sort_order, now, id],
+            )?;
+        }
+        if let Some(ref settings) = input.settings {
+            let json = serde_json::to_string(settings).map_err(|e| anyhow::anyhow!(e))?;
+            conn.execute(
+                "UPDATE projects SET settings = ?1, updated_at = ?2 WHERE id = ?3",
+                params![json, now, id],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn delete_project(&self, id: &str) -> Result<()> {
+        let conn = self.conn();
+        conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn list_goals_by_project(&self, project_id: &str) -> Result<Vec<GoalSpace>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, name, description, status, repo_path, created_at, updated_at, settings
+             FROM goal_spaces WHERE project_id = ?1 ORDER BY created_at DESC",
+        )?;
+
+        let goals = stmt
+            .query_map(params![project_id], |row| {
+                let settings_str: String = row.get(7)?;
+                let settings: GoalSettings =
+                    serde_json::from_str(&settings_str).unwrap_or_default();
+                Ok(GoalSpace {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    status: row.get(3)?,
+                    repo_path: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                    settings,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(goals)
+    }
+
+    // ── Goal Message Queries ──
+
+    pub fn create_goal_message(&self, input: &CreateGoalMessage) -> Result<GoalMessage> {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now().to_rfc3339();
+
+        let conn = self.conn();
+        conn.execute(
+            "INSERT INTO goal_messages (id, goal_space_id, role, content, message_type, metadata_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, input.goal_space_id, input.role, input.content, input.message_type, input.metadata_json, now],
+        )?;
+
+        Ok(GoalMessage {
+            id,
+            goal_space_id: input.goal_space_id.clone(),
+            role: input.role.clone(),
+            content: input.content.clone(),
+            message_type: input.message_type.clone(),
+            metadata_json: input.metadata_json.clone(),
+            created_at: now,
+        })
+    }
+
+    pub fn list_goal_messages(&self, goal_space_id: &str) -> Result<Vec<GoalMessage>> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT id, goal_space_id, role, content, message_type, metadata_json, created_at
+             FROM goal_messages WHERE goal_space_id = ?1 ORDER BY created_at ASC",
+        )?;
+
+        let messages = stmt
+            .query_map(params![goal_space_id], |row| {
+                Ok(GoalMessage {
+                    id: row.get(0)?,
+                    goal_space_id: row.get(1)?,
+                    role: row.get(2)?,
+                    content: row.get(3)?,
+                    message_type: row.get(4)?,
+                    metadata_json: row.get(5)?,
+                    created_at: row.get(6)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        Ok(messages)
+    }
+
+    pub fn delete_goal_messages(&self, goal_space_id: &str) -> Result<()> {
+        let conn = self.conn();
+        conn.execute(
+            "DELETE FROM goal_messages WHERE goal_space_id = ?1",
+            params![goal_space_id],
+        )?;
+        Ok(())
     }
 }
 
@@ -1791,6 +2056,238 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 1);
+    }
+
+    // ── Project tests ──
+
+    #[test]
+    fn test_create_project() {
+        let db = test_db();
+        let project = db
+            .create_project(&CreateProject {
+                path: "/tmp/myproject".into(),
+                display_name: "My Project".into(),
+                sort_order: 0,
+            })
+            .unwrap();
+        assert_eq!(project.display_name, "My Project");
+        assert_eq!(project.path, "/tmp/myproject");
+        assert!(!project.id.is_empty());
+    }
+
+    #[test]
+    fn test_list_projects() {
+        let db = test_db();
+        assert!(db.list_projects().unwrap().is_empty());
+
+        db.create_project(&CreateProject {
+            path: "/tmp/a".into(),
+            display_name: "A".into(),
+            sort_order: 1,
+        })
+        .unwrap();
+        db.create_project(&CreateProject {
+            path: "/tmp/b".into(),
+            display_name: "B".into(),
+            sort_order: 0,
+        })
+        .unwrap();
+
+        let projects = db.list_projects().unwrap();
+        assert_eq!(projects.len(), 2);
+        // Ordered by sort_order ASC
+        assert_eq!(projects[0].display_name, "B");
+        assert_eq!(projects[1].display_name, "A");
+    }
+
+    #[test]
+    fn test_get_project() {
+        let db = test_db();
+        let created = db
+            .create_project(&CreateProject {
+                path: "/tmp/find".into(),
+                display_name: "Find Me".into(),
+                sort_order: 0,
+            })
+            .unwrap();
+
+        let found = db.get_project(&created.id).unwrap().unwrap();
+        assert_eq!(found.display_name, "Find Me");
+
+        let missing = db.get_project("nonexistent").unwrap();
+        assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_update_project() {
+        let db = test_db();
+        let project = db
+            .create_project(&CreateProject {
+                path: "/tmp/orig".into(),
+                display_name: "Original".into(),
+                sort_order: 0,
+            })
+            .unwrap();
+
+        db.update_project(
+            &project.id,
+            &UpdateProject {
+                display_name: Some("Updated".into()),
+                path: None,
+                sort_order: None,
+                settings: None,
+            },
+        )
+        .unwrap();
+
+        let updated = db.get_project(&project.id).unwrap().unwrap();
+        assert_eq!(updated.display_name, "Updated");
+        assert_eq!(updated.path, "/tmp/orig"); // unchanged
+    }
+
+    #[test]
+    fn test_delete_project() {
+        let db = test_db();
+        let project = db
+            .create_project(&CreateProject {
+                path: "/tmp/del".into(),
+                display_name: "Delete Me".into(),
+                sort_order: 0,
+            })
+            .unwrap();
+
+        db.delete_project(&project.id).unwrap();
+        let deleted = db.get_project(&project.id).unwrap();
+        assert!(deleted.is_none());
+    }
+
+    #[test]
+    fn test_list_goals_by_project() {
+        let db = test_db();
+        let project = db
+            .create_project(&CreateProject {
+                path: "/tmp/proj".into(),
+                display_name: "Proj".into(),
+                sort_order: 0,
+            })
+            .unwrap();
+
+        // Create a goal and manually set its project_id
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp/proj".into(),
+                settings: Default::default(),
+            })
+            .unwrap();
+        {
+            let conn = db.conn();
+            conn.execute(
+                "UPDATE goal_spaces SET project_id = ?1 WHERE id = ?2",
+                rusqlite::params![project.id, goal.id],
+            )
+            .unwrap();
+        }
+
+        let goals = db.list_goals_by_project(&project.id).unwrap();
+        assert_eq!(goals.len(), 1);
+        assert_eq!(goals[0].name, "G");
+
+        // No goals for a different project
+        let empty = db.list_goals_by_project("other").unwrap();
+        assert!(empty.is_empty());
+    }
+
+    // ── Goal Message tests ──
+
+    #[test]
+    fn test_create_goal_message() {
+        let db = test_db();
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp".into(),
+                settings: Default::default(),
+            })
+            .unwrap();
+
+        let msg = db
+            .create_goal_message(&CreateGoalMessage {
+                goal_space_id: goal.id.clone(),
+                role: "user".into(),
+                content: "Hello".into(),
+                message_type: "text".into(),
+                metadata_json: "{}".into(),
+            })
+            .unwrap();
+
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.content, "Hello");
+        assert!(!msg.id.is_empty());
+    }
+
+    #[test]
+    fn test_list_goal_messages() {
+        let db = test_db();
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp".into(),
+                settings: Default::default(),
+            })
+            .unwrap();
+
+        db.create_goal_message(&CreateGoalMessage {
+            goal_space_id: goal.id.clone(),
+            role: "user".into(),
+            content: "First".into(),
+            message_type: "text".into(),
+            metadata_json: "{}".into(),
+        })
+        .unwrap();
+        db.create_goal_message(&CreateGoalMessage {
+            goal_space_id: goal.id.clone(),
+            role: "assistant".into(),
+            content: "Second".into(),
+            message_type: "text".into(),
+            metadata_json: "{}".into(),
+        })
+        .unwrap();
+
+        let messages = db.list_goal_messages(&goal.id).unwrap();
+        assert_eq!(messages.len(), 2);
+        // Ordered by created_at ASC
+        assert_eq!(messages[0].content, "First");
+        assert_eq!(messages[1].content, "Second");
+    }
+
+    #[test]
+    fn test_delete_goal_messages() {
+        let db = test_db();
+        let goal = db
+            .create_goal_space(&CreateGoalSpace {
+                name: "G".into(),
+                description: "D".into(),
+                repo_path: "/tmp".into(),
+                settings: Default::default(),
+            })
+            .unwrap();
+
+        db.create_goal_message(&CreateGoalMessage {
+            goal_space_id: goal.id.clone(),
+            role: "user".into(),
+            content: "Msg".into(),
+            message_type: "text".into(),
+            metadata_json: "{}".into(),
+        })
+        .unwrap();
+
+        assert_eq!(db.list_goal_messages(&goal.id).unwrap().len(), 1);
+        db.delete_goal_messages(&goal.id).unwrap();
+        assert!(db.list_goal_messages(&goal.id).unwrap().is_empty());
     }
 }
 

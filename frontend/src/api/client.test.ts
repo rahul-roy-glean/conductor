@@ -8,7 +8,7 @@ import {
   getStats,
   decomposeGoal,
   dispatchGoal,
-} from "./client";
+} from "@/api/client";
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;

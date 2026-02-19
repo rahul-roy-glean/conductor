@@ -5,7 +5,7 @@ import NudgeDialog from "./NudgeDialog";
 
 // Mock the API client
 const mockNudgeAgent = vi.fn();
-vi.mock("../api/client", () => ({
+vi.mock("@/api/client", () => ({
   nudgeAgent: (...args: unknown[]) => mockNudgeAgent(...args),
 }));
 
@@ -90,14 +90,14 @@ describe("NudgeDialog", () => {
   it("clicking the backdrop overlay calls onClose", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    const { container } = render(
-      <NudgeDialog agentId="agent-1" onClose={onClose} />,
-    );
+    render(<NudgeDialog agentId="agent-1" onClose={onClose} />);
 
-    // The backdrop is the outermost fixed div
-    const backdrop = container.querySelector(".fixed.inset-0");
-    expect(backdrop).toBeInTheDocument();
-    await user.click(backdrop!);
+    // Radix Dialog renders the overlay via a portal, so query from document
+    const overlay = document.querySelector("[data-state='open'][role='dialog']");
+    expect(overlay).toBeInTheDocument();
+
+    // Click outside the dialog content by pressing Escape (Radix Dialog closes on Escape)
+    await user.keyboard("{Escape}");
 
     expect(onClose).toHaveBeenCalled();
   });

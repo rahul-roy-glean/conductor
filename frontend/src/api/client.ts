@@ -1,12 +1,14 @@
 import type {
   GoalSpace,
   GoalSettings,
+  GoalMessage,
   Task,
   AgentRun,
   AgentEvent,
   Stats,
   OperationStarted,
-} from "../types";
+  Project,
+} from "@/types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -146,4 +148,49 @@ export function dispatchGoal(goalId: string): Promise<OperationStarted> {
 
 export function dispatchTask(taskId: string): Promise<OperationStarted> {
   return request(`/tasks/${taskId}/dispatch`, { method: "POST" });
+}
+
+// --- Goal Messages ---
+
+export function listGoalMessages(goalId: string): Promise<GoalMessage[]> {
+  return request(`/goals/${goalId}/messages`);
+}
+
+export function sendGoalChat(
+  goalId: string,
+  message: string,
+): Promise<OperationStarted> {
+  return request(`/goals/${goalId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
+// --- Projects ---
+
+export function listProjects(): Promise<Project[]> {
+  return request("/projects");
+}
+
+export function createProject(data: {
+  path: string;
+  display_name: string;
+}): Promise<Project> {
+  return request("/projects", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function updateProject(
+  id: string,
+  data: Partial<Pick<Project, "display_name" | "sort_order">> & {
+    settings?: GoalSettings;
+  },
+): Promise<Project> {
+  return request(`/projects/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteProject(id: string): Promise<void> {
+  return request(`/projects/${id}`, { method: "DELETE" });
 }

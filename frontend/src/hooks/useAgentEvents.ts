@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import type { AgentEvent, AgentRun, OperationUpdate } from "../types";
+import type { AgentEvent, AgentRun, OperationUpdate } from "@/types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -7,11 +7,21 @@ interface UseAgentEventsOptions {
   agentId?: string;
 }
 
+interface ChatChunk {
+  kind: string;
+  operation_id: string;
+  goal_space_id: string;
+  chunk: string;
+  done: boolean;
+}
+
 interface AgentEventsState {
   events: AgentEvent[];
   agents: Map<string, AgentRun>;
   operations: Map<string, OperationUpdate>;
   operationLogs: Map<string, string[]>;
+  chatChunks: Map<string, string>;
+  chatDone: Map<string, boolean>;
   connected: boolean;
 }
 
@@ -22,6 +32,8 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
     agents: new Map(),
     operations: new Map(),
     operationLogs: new Map(),
+    chatChunks: new Map(),
+    chatDone: new Map(),
     connected: false,
   });
   const esRef = useRef<EventSource | null>(null);
@@ -91,6 +103,27 @@ export function useAgentEvents(options: UseAgentEventsOptions = {}) {
             });
           }, 30000);
         }
+      } catch {
+        /* ignore malformed */
+      }
+    });
+
+    es.addEventListener("chat_chunk", (e: MessageEvent) => {
+      try {
+        const chunk: ChatChunk = JSON.parse(e.data);
+        setState((s) => {
+          const chatChunks = new Map(s.chatChunks);
+          const chatDone = new Map(s.chatDone);
+          if (chunk.done) {
+            chatChunks.delete(chunk.goal_space_id);
+            chatDone.set(chunk.goal_space_id, true);
+          } else {
+            const existing = chatChunks.get(chunk.goal_space_id) ?? "";
+            chatChunks.set(chunk.goal_space_id, existing + chunk.chunk);
+            chatDone.set(chunk.goal_space_id, false);
+          }
+          return { ...s, chatChunks, chatDone };
+        });
       } catch {
         /* ignore malformed */
       }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { listAgents, listGoals, getStats, killAgent } from "../api/client";
-import type { AgentRun, GoalSpace, Stats } from "../types";
-import { useAgentEvents } from "../hooks/useAgentEvents";
+import { listAgents, listGoals, getStats, killAgent } from "@/api/client";
+import type { AgentRun, GoalSpace, Stats } from "@/types";
+import { useAgentEvents } from "@/hooks/useAgentEvents";
 import {
   Activity,
   DollarSign,
@@ -15,14 +15,17 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import { useToast } from "./ToastProvider";
-import NudgeDialog from "./NudgeDialog";
+import { useToast } from "@/components/ToastProvider";
+import NudgeDialog from "@/components/NudgeDialog";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const statusColor: Record<AgentRun["status"], string> = {
   spawning: "text-blue-400",
   running: "text-green-400",
   stalled: "text-yellow-400",
-  done: "text-gray-400",
+  done: "text-muted-foreground",
   failed: "text-red-400",
   killed: "text-red-600",
 };
@@ -147,12 +150,15 @@ export default function FleetView() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">Fleet</h1>
+        <h1 className="text-2xl font-bold text-foreground">Fleet</h1>
         <div className="flex items-center gap-1.5">
           <span
-            className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`}
+            className={cn(
+              "w-2 h-2 rounded-full",
+              connected ? "bg-green-500" : "bg-red-500",
+            )}
           />
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {connected ? "Live" : "Disconnected"}
           </span>
         </div>
@@ -160,33 +166,33 @@ export default function FleetView() {
 
       {/* Stats bar */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center gap-2 text-gray-400 mb-1">
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Activity size={16} />
             <span className="text-xs">Active Agents</span>
           </div>
-          <span className="text-2xl font-bold text-gray-100">
+          <span className="text-2xl font-bold text-foreground">
             {stats?.active_agents ?? 0}
           </span>
-        </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center gap-2 text-gray-400 mb-1">
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <DollarSign size={16} />
             <span className="text-xs">Total Cost</span>
           </div>
-          <span className="text-2xl font-bold text-gray-100 font-mono">
+          <span className="text-2xl font-bold text-foreground font-mono">
             ${(stats?.total_cost_usd ?? 0).toFixed(2)}
           </span>
-        </div>
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <div className="flex items-center gap-2 text-gray-400 mb-1">
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <CheckCircle size={16} />
             <span className="text-xs">Tasks Done</span>
           </div>
-          <span className="text-2xl font-bold text-gray-100">
+          <span className="text-2xl font-bold text-foreground">
             {stats?.tasks_completed ?? 0}/{stats?.tasks_total ?? 0}
           </span>
-        </div>
+        </Card>
       </div>
 
       {/* Agent list grouped by repo */}
@@ -202,18 +208,18 @@ export default function FleetView() {
             {/* Repo header - clickable to collapse/expand */}
             <button
               onClick={() => toggleRepo(repoPath)}
-              className="flex items-center gap-2 mb-2 px-2 py-1.5 w-full rounded hover:bg-gray-800 transition-colors group"
+              className="flex items-center gap-2 mb-2 px-2 py-1.5 w-full rounded hover:bg-card transition-colors group"
             >
               {isCollapsed ? (
-                <ChevronRight size={14} className="text-gray-500 shrink-0" />
+                <ChevronRight size={14} className="text-muted-foreground shrink-0" />
               ) : (
-                <ChevronDown size={14} className="text-gray-500 shrink-0" />
+                <ChevronDown size={14} className="text-muted-foreground shrink-0" />
               )}
-              <FolderGit2 size={14} className="text-gray-500 shrink-0" />
-              <span className="text-sm font-mono text-gray-300 truncate">
+              <FolderGit2 size={14} className="text-muted-foreground shrink-0" />
+              <span className="text-sm font-mono text-foreground truncate">
                 {repoPath}
               </span>
-              <span className="text-xs text-gray-500 shrink-0">
+              <span className="text-xs text-muted-foreground shrink-0">
                 {repoAgents.length} agent{repoAgents.length !== 1 ? "s" : ""}
                 {activeCount > 0 && (
                   <span className="text-green-400 ml-1">
@@ -221,16 +227,16 @@ export default function FleetView() {
                   </span>
                 )}
               </span>
-              <span className="text-xs text-gray-500 shrink-0 ml-auto font-mono">
+              <span className="text-xs text-muted-foreground shrink-0 ml-auto font-mono">
                 ${totalCost.toFixed(2)}
               </span>
             </button>
 
             {/* Agent table - only show if not collapsed */}
             {!isCollapsed && (
-              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              <Card className="overflow-hidden">
                 {/* Header row */}
-                <div className="grid grid-cols-[auto_1fr_100px_80px_100px_100px_auto] gap-3 items-center px-4 py-2 text-xs text-gray-500 border-b border-gray-700 font-medium">
+                <div className="grid grid-cols-[auto_1fr_100px_80px_100px_100px_auto] gap-3 items-center px-4 py-2 text-xs text-muted-foreground border-b border-border font-medium">
                   <span className="w-2.5" />
                   <span>Branch</span>
                   <span>Status</span>
@@ -245,38 +251,44 @@ export default function FleetView() {
                   <div
                     key={agent.id}
                     onClick={() => navigate(`/agents/${agent.id}`)}
-                    className="grid grid-cols-[auto_1fr_100px_80px_100px_100px_auto] gap-3 items-center px-4 py-2.5 border-b border-gray-700/50 last:border-b-0 hover:bg-gray-750 cursor-pointer transition-colors group"
+                    className="grid grid-cols-[auto_1fr_100px_80px_100px_100px_auto] gap-3 items-center px-4 py-2.5 border-b border-border/50 last:border-b-0 hover:bg-muted/50 cursor-pointer transition-colors group"
                   >
                     {/* Status dot */}
                     <span
-                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusDot[agent.status]}`}
+                      className={cn(
+                        "w-2.5 h-2.5 rounded-full shrink-0",
+                        statusDot[agent.status],
+                      )}
                     />
 
                     {/* Branch name */}
-                    <span className="text-sm font-mono text-gray-200 truncate">
+                    <span className="text-sm font-mono text-foreground truncate">
                       {agent.branch ?? agent.id.slice(0, 12)}
                     </span>
 
                     {/* Status */}
                     <span
-                      className={`text-xs font-medium ${statusColor[agent.status]}`}
+                      className={cn(
+                        "text-xs font-medium",
+                        statusColor[agent.status],
+                      )}
                     >
                       {agent.status}
                     </span>
 
                     {/* Elapsed */}
-                    <span className="text-xs text-gray-400 text-right font-mono">
+                    <span className="text-xs text-muted-foreground text-right font-mono">
                       {elapsed(agent.started_at, agent.finished_at)}
                     </span>
 
                     {/* Cost */}
-                    <span className="text-xs text-gray-400 text-right font-mono">
+                    <span className="text-xs text-muted-foreground text-right font-mono">
                       ${agent.cost_usd.toFixed(2)}
                     </span>
 
                     {/* Started timestamp */}
                     <span
-                      className="text-xs text-gray-500 text-right"
+                      className="text-xs text-muted-foreground text-right"
                       title={new Date(agent.started_at).toLocaleString()}
                     >
                       {timeAgo(agent.started_at)}
@@ -284,23 +296,27 @@ export default function FleetView() {
 
                     {/* Actions */}
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-yellow-400"
                         onClick={(e) => {
                           e.stopPropagation();
                           setNudgeId(agent.id);
                         }}
-                        className="p-1 text-yellow-400 hover:bg-gray-700 rounded transition-colors"
                         title="Nudge"
                       >
                         <Zap size={13} />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-400"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleKill(agent.id);
                         }}
                         disabled={killingId === agent.id}
-                        className="p-1 text-red-400 hover:bg-gray-700 rounded transition-colors disabled:opacity-50"
                         title="Kill"
                       >
                         {killingId === agent.id ? (
@@ -308,11 +324,11 @@ export default function FleetView() {
                         ) : (
                           <Skull size={13} />
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
-              </div>
+              </Card>
             )}
           </div>
         );
@@ -320,9 +336,9 @@ export default function FleetView() {
 
       {mergedAgents.length === 0 && (
         <div className="text-center py-16">
-          <Monitor size={40} className="mx-auto text-gray-700 mb-3" />
-          <p className="text-gray-400 font-medium mb-1">No agents running</p>
-          <p className="text-gray-600 text-sm">
+          <Monitor size={40} className="mx-auto text-border mb-3" />
+          <p className="text-muted-foreground font-medium mb-1">No agents running</p>
+          <p className="text-muted-foreground/60 text-sm">
             Create a goal and dispatch tasks to get started
           </p>
         </div>

@@ -1,10 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { Zap, Skull, Loader2 } from "lucide-react";
-import type { AgentRun } from "../types";
-import { killAgent } from "../api/client";
+import type { AgentRun } from "@/types";
+import { killAgent } from "@/api/client";
 import { useState } from "react";
-import NudgeDialog from "./NudgeDialog";
-import { useToast } from "./ToastProvider";
+import NudgeDialog from "@/components/NudgeDialog";
+import { useToast } from "@/components/ToastProvider";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const statusColor: Record<AgentRun["status"], string> = {
   spawning: "bg-blue-500",
@@ -59,49 +62,56 @@ export default function AgentCard({
 
   return (
     <>
-      <div
+      <Card
         onClick={() => navigate(`/agents/${agent.id}`)}
-        className="bg-gray-800 rounded-lg p-4 cursor-pointer hover:bg-gray-750 border border-gray-700 hover:border-gray-600 transition-colors"
+        className="p-4 cursor-pointer hover:bg-muted/50 hover:border-input transition-colors"
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span
-              className={`w-2.5 h-2.5 rounded-full ${statusColor[agent.status]}`}
+              className={cn(
+                "w-2.5 h-2.5 rounded-full",
+                statusColor[agent.status],
+              )}
             />
-            <span className="text-sm font-medium text-gray-100 truncate">
+            <span className="text-sm font-medium text-foreground truncate">
               {agent.branch ?? agent.id.slice(0, 8)}
             </span>
           </div>
-          <span className="text-xs text-gray-400">{agent.status}</span>
+          <span className="text-xs text-muted-foreground">{agent.status}</span>
         </div>
 
         {taskTitle && (
-          <p className="text-sm text-gray-300 truncate mb-2">{taskTitle}</p>
+          <p className="text-sm text-foreground truncate mb-2">{taskTitle}</p>
         )}
 
-        <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
           <span>{elapsed(agent.started_at, agent.finished_at)}</span>
           <span className="font-mono">${agent.cost_usd.toFixed(2)}</span>
         </div>
 
         {lastActivity && (
-          <p className="text-xs text-gray-500 truncate mb-3">{lastActivity}</p>
+          <p className="text-xs text-muted-foreground truncate mb-3">{lastActivity}</p>
         )}
 
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-yellow-400"
             onClick={(e) => {
               e.stopPropagation();
               setShowNudge(true);
             }}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-yellow-400 transition-colors"
           >
             <Zap size={12} /> Nudge
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:bg-red-900/30"
             onClick={handleKill}
             disabled={killing}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 hover:bg-red-900 rounded text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {killing ? (
               <Loader2 size={12} className="animate-spin" />
@@ -109,9 +119,9 @@ export default function AgentCard({
               <Skull size={12} />
             )}{" "}
             Kill
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {showNudge && (
         <NudgeDialog agentId={agent.id} onClose={() => setShowNudge(false)} />

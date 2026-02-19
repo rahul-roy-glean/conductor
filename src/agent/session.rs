@@ -76,6 +76,12 @@ pub enum BroadcastEvent {
         message: String,
         result: Option<serde_json::Value>,
     },
+    ChatChunk {
+        operation_id: String,
+        goal_space_id: String,
+        chunk: String,
+        done: bool,
+    },
 }
 
 /// Manages all active Claude Code agent sessions

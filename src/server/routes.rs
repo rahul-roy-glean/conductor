@@ -15,7 +15,7 @@ use tower_http::cors::CorsLayer;
 struct FrontendAssets;
 
 use crate::agent::session::BroadcastEvent;
-use crate::db::queries::{CreateGoalSpace, CreateTask, UpdateTask};
+use crate::db::queries::{CreateGoalSpace, CreateProject, CreateTask, UpdateProject, UpdateTask};
 use crate::hooks;
 use crate::server::sse;
 use crate::server::AppState;
@@ -51,6 +51,16 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             "/api/hooks/subagent-stop",
             post(hooks::handler::handle_subagent_stop_hook),
         )
+        // Projects
+        .route("/api/projects", get(list_projects_handler).post(create_project_handler))
+        .route(
+            "/api/projects/{id}",
+            get(get_project_handler).put(update_project_handler).delete(delete_project_handler),
+        )
+        .route("/api/projects/{id}/goals", get(list_project_goals_handler))
+        // Goal Chat
+        .route("/api/goals/{id}/chat", post(goal_chat_handler))
+        .route("/api/goals/{id}/messages", get(list_goal_messages_handler))
         // Stats
         .route("/api/stats", get(get_stats))
         .fallback(static_handler)
@@ -762,6 +772,176 @@ async fn get_agent_events(
 ) -> impl IntoResponse {
     match state.db.list_agent_events(&id) {
         Ok(events) => Json(json!(events)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+// ── Project Handlers ──
+
+async fn list_projects_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    match state.db.list_projects() {
+        Ok(projects) => Json(json!(projects)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn create_project_handler(
+    State(state): State<Arc<AppState>>,
+    Json(input): Json<CreateProject>,
+) -> impl IntoResponse {
+    match state.db.create_project(&input) {
+        Ok(project) => (StatusCode::CREATED, Json(json!(project))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn get_project_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.get_project(&id) {
+        Ok(Some(project)) => Json(json!(project)).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(json!({"error": "Not found"}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn update_project_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(input): Json<UpdateProject>,
+) -> impl IntoResponse {
+    match state.db.update_project(&id, &input) {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn delete_project_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.delete_project(&id) {
+        Ok(()) => Json(json!({"ok": true})).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn list_project_goals_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.list_goals_by_project(&id) {
+        Ok(goals) => Json(json!(goals)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"error": e.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+// ── Goal Chat Handlers ──
+
+async fn goal_chat_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(input): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let message = match input.get("message").and_then(|m| m.as_str()) {
+        Some(m) if !m.is_empty() => m.to_string(),
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"error": "message is required"})),
+            )
+                .into_response()
+        }
+    };
+
+    // Verify goal exists
+    match state.db.get_goal_space(&id) {
+        Ok(Some(_)) => {}
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"error": "Goal not found"})),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": e.to_string()})),
+            )
+                .into_response()
+        }
+    }
+
+    let operation_id = uuid::Uuid::new_v4().to_string();
+    let goal_space_id = id.clone();
+    let op_id = operation_id.clone();
+    let state = Arc::clone(&state);
+
+    tokio::spawn(async move {
+        if let Err(e) = crate::goal::chat::run_goal_chat(
+            &state.db,
+            &goal_space_id,
+            &message,
+            &state.event_tx,
+            &op_id,
+        )
+        .await
+        {
+            tracing::error!("Chat failed for goal {}: {}", goal_space_id, e);
+            let _ = state.event_tx.send(BroadcastEvent::OperationUpdate {
+                operation_id: op_id,
+                goal_space_id,
+                operation_type: "chat".to_string(),
+                status: "failed".to_string(),
+                message: e.to_string(),
+                result: None,
+            });
+        }
+    });
+
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({ "operation_id": operation_id, "status": "running" })),
+    )
+        .into_response()
+}
+
+async fn list_goal_messages_handler(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.db.list_goal_messages(&id) {
+        Ok(messages) => Json(json!(messages)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": e.to_string()})),

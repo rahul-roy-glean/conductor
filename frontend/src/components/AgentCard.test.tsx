@@ -3,10 +3,10 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import AgentCard from "./AgentCard";
 import { ToastProvider } from "./ToastProvider";
-import type { AgentRun } from "../types";
+import type { AgentRun } from "@/types";
 
 // Mock the API client to avoid real fetch calls
-vi.mock("../api/client", () => ({
+vi.mock("@/api/client", () => ({
   killAgent: vi.fn(() => Promise.resolve()),
   nudgeAgent: vi.fn(() => Promise.resolve()),
 }));

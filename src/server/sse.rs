@@ -18,6 +18,7 @@ pub async fn global_event_stream(
             let event_name = match event {
                 BroadcastEvent::AgentEvent { .. } => "agent_event",
                 BroadcastEvent::OperationUpdate { .. } => "operation_update",
+                BroadcastEvent::ChatChunk { .. } => "chat_chunk",
             };
             let json = serde_json::to_string(&event).unwrap_or_default();
             Some(Ok::<_, Infallible>(

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { getStats, listGoals, listAgents } from "../api/client";
-import type { Stats, GoalSpace, AgentRun } from "../types";
+import { getStats, listGoals, listAgents } from "@/api/client";
+import type { Stats, GoalSpace, AgentRun } from "@/types";
 import { DollarSign } from "lucide-react";
-import { useToast } from "./ToastProvider";
+import { useToast } from "@/components/ToastProvider";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface GoalCost {
   goal: GoalSpace;
@@ -43,35 +45,35 @@ export default function CostDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-100 mb-6">
+        <h1 className="text-2xl font-bold text-foreground mb-6">
           Cost Dashboard
         </h1>
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 inline-block">
-          <div className="flex items-center gap-3 text-gray-400 mb-2">
+        <Card className="p-6 inline-block">
+          <div className="flex items-center gap-3 text-muted-foreground mb-2">
             <DollarSign size={20} />
             <span className="text-sm">Total Spend</span>
           </div>
           <span className="text-4xl font-bold font-mono text-green-400">
             ${(stats?.total_cost_usd ?? 0).toFixed(2)}
           </span>
-        </div>
+        </Card>
       </div>
 
       {/* Per-goal breakdown */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Cost by Goal
         </h2>
         <div className="space-y-3">
           {goalCosts.map(({ goal, cost }) => (
             <div key={goal.id} className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-300 truncate">{goal.name}</span>
-                <span className="text-gray-400 font-mono">
+                <span className="text-foreground truncate">{goal.name}</span>
+                <span className="text-muted-foreground font-mono">
                   ${cost.toFixed(2)}
                 </span>
               </div>
-              <div className="h-3 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
+              <div className={cn("h-3 bg-card rounded-full border border-border overflow-hidden")}>
                 <div
                   className="h-full bg-blue-600 rounded-full transition-all"
                   style={{ width: `${(cost / maxGoalCost) * 100}%` }}
@@ -80,14 +82,14 @@ export default function CostDashboard() {
             </div>
           ))}
           {goalCosts.length === 0 && (
-            <p className="text-gray-500 text-sm">No cost data available</p>
+            <p className="text-muted-foreground text-sm">No cost data available</p>
           )}
         </div>
       </div>
 
       {/* Per-agent cost */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Cost by Agent
         </h2>
         <div className="space-y-3">
@@ -96,14 +98,14 @@ export default function CostDashboard() {
             .map((agent) => (
               <div key={agent.id} className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-300 font-mono truncate">
+                  <span className="text-foreground font-mono truncate">
                     {agent.branch ?? agent.id.slice(0, 8)}
                   </span>
-                  <span className="text-gray-400 font-mono">
+                  <span className="text-muted-foreground font-mono">
                     ${agent.cost_usd.toFixed(4)}
                   </span>
                 </div>
-                <div className="h-3 bg-gray-800 rounded-full border border-gray-700 overflow-hidden">
+                <div className="h-3 bg-card rounded-full border border-border overflow-hidden">
                   <div
                     className="h-full bg-green-600 rounded-full transition-all"
                     style={{
@@ -114,7 +116,7 @@ export default function CostDashboard() {
               </div>
             ))}
           {agents.length === 0 && (
-            <p className="text-gray-500 text-sm">No agents recorded</p>
+            <p className="text-muted-foreground text-sm">No agents recorded</p>
           )}
         </div>
       </div>

@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { nudgeAgent } from "../api/client";
+import { nudgeAgent } from "@/api/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   agentId: string;
@@ -22,37 +30,29 @@ export default function NudgeDialog({ agentId, onClose }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-medium text-gray-100 mb-4">Nudge Agent</h3>
-        <textarea
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nudge Agent</DialogTitle>
+        </DialogHeader>
+        <Textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Enter nudge message..."
-          className="w-full h-32 bg-gray-900 border border-gray-600 rounded p-3 text-gray-100 text-sm font-mono resize-none focus:outline-none focus:border-blue-500"
+          className="h-32 font-mono resize-none"
         />
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
-          >
+        <div className="flex justify-end gap-3">
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleSend}
             disabled={sending || !message.trim()}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded text-white transition-colors"
           >
             {sending ? "Sending..." : "Send"}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

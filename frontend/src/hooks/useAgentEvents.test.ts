@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useAgentEvents } from "./useAgentEvents";
+import { useAgentEvents } from "@/hooks/useAgentEvents";
 
 type EventHandler = ((event: MessageEvent) => void) | (() => void) | null;
 
